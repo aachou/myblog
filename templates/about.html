@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}About - MyBlog{% endblock %}
+{% block content %}
+<article class="about-content">
+  <div class="post-content">
+    {{ about_content | safe }}
+  </div>
+
+  <p class="built-with">Built with love using <strong>Rust</strong> &amp; <strong>Axum</strong></p>
+
+  <div class="about-stats">
+    <div class="stat-card">
+      <span class="number">{{ posts | length }}</span>
+      <span class="label">Posts</span>
+    </div>
+    <div class="stat-card">
+      <span class="number">{{ tag_count }}</span>
+      <span class="label">Tags</span>
+    </div>
+    <div class="stat-card">
+      <span class="number">{{ word_count }}</span>
+      <span class="label">Words</span>
+    </div>
+  </div>
+</article>
+{% endblock %}

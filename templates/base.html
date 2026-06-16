@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}MyBlog{% endblock %}</title>
+<meta property="og:title" content="{{ og_title | default(value='MyBlog') }}">
+<meta property="og:description" content="{{ og_description | default(value='A personal blog built with Rust and Axum') }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ og_url | default(value='http://127.0.0.1:3000') }}">
+<link rel="alternate" type="application/rss+xml" title="MyBlog" href="/feed.xml">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/script.js" defer></script>
+</head>
+<body>
+<header>
+  <nav>
+    <a href="/" class="site-title">MyBlog</a>
+    <div class="nav-links">
+      <form action="/search" method="get" class="search-form" role="search">
+        <input type="search" name="q" placeholder="Search..." class="search-input" id="search-input">
+      </form>
+      <a href="/">Home</a>
+      <a href="/archive">Archive</a>
+      <a href="/tags">Tags</a>
+      <a href="/about">About</a>
+    </div>
+  </nav>
+</header>
+<main>
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+<footer>
+  <div class="container">
+    <p>&copy; 2026 MyBlog. Built with <a href="https://www.rust-lang.org/" target="_blank" rel="noopener">Rust</a> &amp; <a href="https://github.com/tokio-rs/axum" target="_blank" rel="noopener">Axum</a>. Powered by <a href="https://www.markdownguide.org/" target="_blank" rel="noopener">Markdown</a>.</p>
+  </div>
+</footer>
+</body>
+</html>

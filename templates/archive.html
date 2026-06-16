@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Archive - MyBlog{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Archive</h1>
+  <p>{{ total_posts }} post{% if total_posts != 1 %}s{% endif %} &middot; {{ total_years }} year{% if total_years != 1 %}s{% endif %}</p>
+</section>
+
+{% if current_year_group %}
+<section class="archive-list">
+  <div class="archive-year">
+    <h2>{{ current_year_group.year }}</h2>
+    {% for month in current_year_group.months %}
+    <div class="archive-month">
+      <h3>{{ month.month }}</h3>
+      <ul>
+        {% for post in month.posts %}
+        <li>
+          <time>{{ post.date }}</time>
+          <a href="/post/{{ post.slug }}">{{ post.title }}</a>
+          <span class="reading-time">{{ post.reading_time }} min</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<nav class="archive-nav">
+  {% if has_prev %}
+  <a href="/archive?page={{ prev_page }}" class="archive-nav-link">&larr; {{ prev_year }}</a>
+  {% else %}
+  <span></span>
+  {% endif %}
+  <span class="archive-nav-info">{{ current_page }} / {{ total_years }}</span>
+  {% if has_next %}
+  <a href="/archive?page={{ next_page }}" class="archive-nav-link">{{ next_year }} &rarr;</a>
+  {% else %}
+  <span></span>
+  {% endif %}
+</nav>
+{% else %}
+<section class="posts">
+  <article class="post-card" style="text-align: center; padding: 40px;">
+    <p style="color: var(--text-secondary);">No posts yet. Check back soon!</p>
+  </article>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Tags - MyBlog{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Tags</h1>
+  <p>{{ total_tags }} tag{% if total_tags != 1 %}s{% endif %} total</p>
+</section>
+
+{% if tag_cloud %}
+<section class="tag-cloud-page">
+  <div class="tag-cloud-items">
+    {% for t in tag_cloud %}
+    <a href="/tag/{{ t.name }}" class="tag" style="font-size: {{ 0.8 + t.weight * 0.7 }}rem;">{{ t.name }}<span class="tag-count">{{ t.count }}</span></a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
