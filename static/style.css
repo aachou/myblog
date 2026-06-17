@@ -88,6 +88,8 @@ header nav {
   max-width: var(--max-width-wide);
   margin: 0 auto;
   padding: 16px 24px;
+  flex-wrap: wrap;
+  row-gap: 12px;
 }
 .site-title {
   font-size: 1.35rem;
@@ -366,6 +368,7 @@ a.tag:hover {
   border-radius: 10px;
   overflow-x: auto;
   overflow-y: hidden;
+  tab-size: 4;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   font-size: 0.875rem;
   line-height: 1.6;
@@ -864,5 +867,5 @@ a.tag:hover {
   ::selection { background: #6366f1; }
 }
 .pop-tags-section { margin-top: 32px; }
-.pop-tags-section h2 { margin-bottom: 12px; }
+.pop-tags-section h2 { margin-bottom: 24px; }
 .posts h2 { margin-bottom: 16px; }
