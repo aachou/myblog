@@ -864,3 +864,5 @@ a.tag:hover {
   ::selection { background: #6366f1; }
 }
 .pop-tags-section { margin-top: 32px; }
+.pop-tags-section h2 { margin-bottom: 12px; }
+.posts h2 { margin-bottom: 16px; }
