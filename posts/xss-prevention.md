@@ -65,11 +65,12 @@ Use report-only mode to validate your policy before enforcing it.
 When you must allow user-supplied HTML (rich text editors), use a dedicated sanitization library.
 
 ```javascript
+
 import DOMPurify from "dompurify";
 
 const clean = DOMPurify.sanitize(userInput, {
-  ALLOWED_TAGS: ["b", "i", "em", "strong", "a"],
-  ALLOWED_ATTR: ["href", "title"],
+    ALLOWED_TAGS: ["b", "i", "em", "strong", "a"],
+    ALLOWED_ATTR: ["href", "title"],
 });
 ```
 
@@ -85,6 +86,7 @@ Prefer safe DOM APIs over dangerous ones.
 | `document.write(data)` | `document.createTextNode(data)` |
 | `element.outerHTML = data` | `element.insertAdjacentText(...)` |
 | `new Function(data)` | Parse JSON instead |
+
 
 ```javascript
 // 鉂?Dangerous

@@ -47,41 +47,43 @@ Ecto is Phoenix's database wrapper and query generator:
 
 ```elixir
 defmodule MyApp.Blog do
-  import Ecto.Query
+    import Ecto.Query
 
-  def list_published_posts do
-    Repo.all(
-      from p in Post,
-        where: p.published == true,
-        order_by: [desc: p.published_at],
-        preload: [:author, :tags]
-    )
-  end
+    def list_published_posts do
+        Repo.all(
+            from p in Post,
+                where: p.published == true,
+                order_by: [desc: p.published_at],
+                preload: [:author, :tags]
+        )
+    end
 end
-```
 
+```
 ## Phoenix Channels
 
 Channels provide real-time bidirectional communication:
 
 ```elixir
+
 defmodule MyAppWeb.RoomChannel do
-  use Phoenix.Channel
+    use Phoenix.Channel
 
-  def join("room:" <> room_id, _payload, socket) do
-    {:ok, assign(socket, :room_id, room_id)}
-  end
+    def join("room:" <> room_id, _payload, socket) do
+        {:ok, assign(socket, :room_id, room_id)}
+    end
 
-  def handle_in("new_message", %{"body" => body}, socket) do
-    broadcast!(socket, "new_message", %{user: socket.assigns.user, body: body})
-    {:noreply, socket}
-  end
+    def handle_in("new_message", %{"body" => body}, socket) do
+        broadcast!(socket, "new_message", %{user: socket.assigns.user, body: body})
+        {:noreply, socket}
+    end
 end
 ```
 
 ## LiveView
 
 LiveView enables real-time UI without writing JavaScript:
+
 
 ```elixir
 defmodule MyAppWeb.CounterLive do
@@ -112,15 +114,15 @@ Everything in Phoenix runs under a supervision tree. If a process crashes, the s
 
 ```elixir
 children = [
-  MyApp.Repo,
-  MyAppWeb.Endpoint,
-  {MyApp.SomeWorker, [name: :worker]}
+    MyApp.Repo,
+    MyAppWeb.Endpoint,
+    {MyApp.SomeWorker, [name: :worker]}
 ]
 
 opts = [strategy: :one_for_one, name: MyApp.Supervisor]
 Supervisor.start_link(children, opts)
-```
 
+```
 ## Testing
 
 ```elixir

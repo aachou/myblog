@@ -16,27 +16,28 @@ Web Components consist of three browser APIs that work together:
 3. **HTML Templates** 鈥?declare fragments that are not rendered until needed
 
 ```javascript
-class MyCard extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-  }
 
-  connectedCallback() {
-    this.shadowRoot.innerHTML = `
-      <style>
-        .card {
-          border: 1px solid #ccc;
-          border-radius: 8px;
-          padding: 16px;
-        }
-      </style>
-      <div class="card">
-        <slot name="title"></slot>
-        <slot></slot>
-      </div>
-    `;
-  }
+class MyCard extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: "open" });
+    }
+
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `
+            <style>
+                .card {
+                    border: 1px solid #ccc;
+                    border-radius: 8px;
+                    padding: 16px;
+                }
+            </style>
+            <div class="card">
+                <slot name="title"></slot>
+                <slot></slot>
+            </div>
+        `;
+    }
 }
 
 customElements.define("my-card", MyCard);
@@ -61,6 +62,7 @@ Use `connectedCallback` for setup and `disconnectedCallback` for cleanup.
 
 To react to attribute changes, declare a static `observedAttributes` getter:
 
+
 ```javascript
 class MyButton extends HTMLElement {
   static get observedAttributes() {
@@ -82,11 +84,11 @@ Slots allow users to project content into your component from the outside.
 
 ```html
 <my-card>
-  <span slot="title">Hello World</span>
-  <p>This content goes into the default slot.</p>
+    <span slot="title">Hello World</span>
+    <p>This content goes into the default slot.</p>
 </my-card>
-```
 
+```
 Named slots target specific insertion points, while the unnamed slot catches everything else.
 
 ## Styling and Shadow DOM
@@ -114,18 +116,18 @@ Dispatch custom events to communicate with the outside world:
 
 ```javascript
 class MyToggle extends HTMLElement {
-  connectedCallback() {
-    this.addEventListener("click", () => {
-      this.dispatchEvent(new CustomEvent("toggle", {
-        detail: { active: !this.active },
-        bubbles: true,
-        composed: true,
-      }));
-    });
-  }
+    connectedCallback() {
+        this.addEventListener("click", () => {
+            this.dispatchEvent(new CustomEvent("toggle", {
+                detail: { active: !this.active },
+                bubbles: true,
+                composed: true,
+            }));
+        });
+    }
 }
-```
 
+```
 Setting `composed: true` lets the event cross shadow DOM boundaries.
 
 ## Framework Interop

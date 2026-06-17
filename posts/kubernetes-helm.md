@@ -29,6 +29,7 @@ mychart/
 Every chart needs a `Chart.yaml` file:
 
 ```yaml
+
 apiVersion: v2
 name: myapp
 description: A production-ready web application
@@ -36,14 +37,15 @@ type: application
 version: 1.0.0
 appVersion: "1.16.0"
 dependencies:
-  - name: redis
-    version: "17.x"
-    repository: "https://charts.bitnami.com/bitnami"
+    - name: redis
+        version: "17.x"
+        repository: "https://charts.bitnami.com/bitnami"
 ```
 
 ## Templating with Go Templates
 
 Helm uses Go templates to generate Kubernetes manifests dynamically. Access values from `values.yaml`:
+
 
 ```yaml
 # values.yaml
@@ -61,24 +63,24 @@ service:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "mychart.fullname" . }}
+    name: {{ include "mychart.fullname" . }}
 spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: {{ include "mychart.name" . }}
-  template:
-    metadata:
-      labels:
-        app: {{ include "mychart.name" . }}
-    spec:
-      containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          ports:
-            - containerPort: {{ .Values.service.port }}
-```
+    replicas: {{ .Values.replicaCount }}
+    selector:
+        matchLabels:
+            app: {{ include "mychart.name" . }}
+    template:
+        metadata:
+            labels:
+                app: {{ include "mychart.name" . }}
+        spec:
+            containers:
+                - name: {{ .Chart.Name }}
+                    image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+                    ports:
+                        - containerPort: {{ .Values.service.port }}
 
+```
 | Template Function | Purpose |
 |-------------------|---------|
 | `.Values.*` | Access user-supplied values |
@@ -119,11 +121,11 @@ Helm works seamlessly in pipelines:
 ```yaml
 # GitHub Actions step
 - name: Deploy with Helm
-  run: |
-    helm upgrade --install myapp ./mychart \
-      --namespace production \
-      --values values/production.yaml \
-      --set image.tag=${{ github.sha }}
-```
+    run: |
+        helm upgrade --install myapp ./mychart \
+            --namespace production \
+            --values values/production.yaml \
+            --set image.tag=${{ github.sha }}
 
+```
 Helm's three-way strategic merge patching ensures upgrades are idempotent and rollbacks are reliable. It is the standard way to package and deploy Kubernetes applications across most organizations.

@@ -12,6 +12,7 @@ When Vue 3 shipped the Composition API, it introduced a paradigm shift that divi
 The Composition API centers on the `setup` function, which runs before the component is created.
 
 ```vue
+
 <script setup>
 import { ref, computed, onMounted } from "vue";
 
@@ -19,11 +20,11 @@ const count = ref(0);
 const double = computed(() => count.value * 2);
 
 function increment() {
-  count.value++;
+    count.value++;
 }
 
 onMounted(() => {
-  console.log(`Initial count: ${count.value}`);
+    console.log(`Initial count: ${count.value}`);
 });
 </script>
 ```
@@ -43,14 +44,14 @@ The Options API shines for simple components where data, methods, and computed p
 import { ref, computed } from "vue";
 
 export function useCounter(initial = 0) {
-  const count = ref(initial);
-  const double = computed(() => count.value * 2);
+    const count = ref(initial);
+    const double = computed(() => count.value * 2);
 
-  function increment() {
-    count.value++;
-  }
+    function increment() {
+        count.value++;
+    }
 
-  return { count, double, increment };
+    return { count, double, increment };
 }
 ```
 
@@ -63,6 +64,7 @@ const { count, double, increment } = useCounter(10);
 ## Organizing Composition Functions
 
 A common mistake is dumping everything into `setup` without structure. Group related logic together:
+
 
 ```vue
 <script setup>

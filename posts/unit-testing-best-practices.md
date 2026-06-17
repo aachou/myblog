@@ -12,19 +12,20 @@ Unit testing is one of those topics every developer agrees is important, yet few
 Every test should follow the three-phase structure. It sounds trivial, but you would be surprised how many tests mix setup with verification.
 
 ```javascript
+
 describe("OrderService.calculateTotal", () => {
-  it("applies discount for premium members", () => {
-    // Arrange
-    const user = new User({ tier: "premium" });
-    const order = new Order({ items: [{ price: 100 }] });
-    const service = new OrderService();
+    it("applies discount for premium members", () => {
+        // Arrange
+        const user = new User({ tier: "premium" });
+        const order = new Order({ items: [{ price: 100 }] });
+        const service = new OrderService();
 
-    // Act
-    const total = service.calculateTotal(user, order);
+        // Act
+        const total = service.calculateTotal(user, order);
 
-    // Assert
-    expect(total).toBe(90);
-  });
+        // Assert
+        expect(total).toBe(90);
+    });
 });
 ```
 
@@ -37,6 +38,7 @@ Tests that break when you refactor internals are a liability. They erode confide
 - Test public **behavior**, not private methods
 - Mock at the boundary of your system, not deep inside
 - Prefer real instances over mocks when the dependency is fast and deterministic
+
 
 ```javascript
 // 鉂?Fragile 鈥?tests internal state
@@ -61,16 +63,16 @@ Hardcoded fixture files spread across your test directory make it hard to unders
 
 ```typescript
 function createUser(overrides: Partial<User> = {}): User {
-  return {
-    id: 1,
-    name: "Default Name",
-    email: "default@example.com",
-    isActive: true,
-    ...overrides,
-  };
+    return {
+        id: 1,
+        name: "Default Name",
+        email: "default@example.com",
+        isActive: true,
+        ...overrides,
+    };
 }
-```
 
+```
 Now each test can specify only the fields that matter, and reading the test tells you exactly what is important.
 
 ## Test Behaviors, Not Methods

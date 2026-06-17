@@ -71,13 +71,14 @@ Text frames are interpreted as UTF-8. Binary frames carry raw bytes.
 All client-to-server frames must be masked with a 32-bit mask key. Servers do not mask their frames.
 
 ```javascript
+
 // Masking a payload in JavaScript
 function mask(payload, maskKey) {
-  const result = new Uint8Array(payload.length);
-  for (let i = 0; i < payload.length; i++) {
-    result[i] = payload[i] ^ maskKey[i % 4];
-  }
-  return result;
+    const result = new Uint8Array(payload.length);
+    for (let i = 0; i < payload.length; i++) {
+        result[i] = payload[i] ^ maskKey[i % 4];
+    }
+    return result;
 }
 ```
 
@@ -86,6 +87,7 @@ This prevents cache poisoning attacks by ensuring proxies cannot misinterpret We
 ## Ping and Pong
 
 WebSocket provides keep-alive at the protocol level. Either peer can send a ping frame, and the other must respond with a pong frame containing the same application data.
+
 
 ```javascript
 // Sending a ping
@@ -122,14 +124,14 @@ WebSocket can be harder to scale than HTTP because connections are long-lived.
 ```javascript
 // Client-side auto-reconnect
 function connect() {
-  const ws = new WebSocket("wss://example.com/ws");
+    const ws = new WebSocket("wss://example.com/ws");
 
-  ws.onclose = () => {
-    setTimeout(connect, 1000);
-  };
+    ws.onclose = () => {
+        setTimeout(connect, 1000);
+    };
 }
-```
 
+```
 ## Security
 
 Always use `wss://` in production 鈥?the encrypted variant of WebSocket. Validate input data on the server and set a maximum message size to prevent resource exhaustion.

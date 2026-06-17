@@ -12,33 +12,35 @@ The Serverless Framework is an open-source tool that abstracts cloud provider co
 A typical Serverless project:
 
 ```
-my-service/
-  handler.js
-  serverless.yml
-  package.json
-```
 
+my-service/
+    handler.js
+    serverless.yml
+    package.json
+
+```
 ## The serverless.yml File
 
 This is the heart of your deployment:
 
 ```yaml
+
 service: my-api
 
 provider:
-  name: aws
-  runtime: nodejs18.x
-  region: us-east-1
-  environment:
-    TABLE_NAME: ${self:custom.tableName}
+    name: aws
+    runtime: nodejs18.x
+    region: us-east-1
+    environment:
+        TABLE_NAME: ${self:custom.tableName}
 
 functions:
-  hello:
-    handler: handler.hello
-    events:
-      - http:
-          path: /hello
-          method: get
+    hello:
+        handler: handler.hello
+        events:
+            - http:
+                    path: /hello
+                    method: get
 ```
 
 ## Handler Functions
@@ -47,10 +49,10 @@ Your business logic lives in separate files:
 
 ```javascript
 exports.hello = async (event) => {
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: "Hello, Serverless!" })
-  };
+    return {
+        statusCode: 200,
+        body: JSON.stringify({ message: "Hello, Serverless!" })
+    };
 };
 ```
 
@@ -75,6 +77,7 @@ This creates a CloudFormation stack, provisions resources, and uploads your code
 ## Plugins
 
 The plugin ecosystem extends functionality:
+
 
 ```yaml
 plugins:

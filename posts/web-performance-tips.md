@@ -16,12 +16,13 @@ Images are often the biggest assets on a page:
 - Serve responsive images using `srcset`
 
 ```html
+
 <img
-  src="photo-800w.webp"
-  srcset="photo-400w.webp 400w, photo-800w.webp 800w, photo-1200w.webp 1200w"
-  sizes="(max-width: 600px) 400px, (max-width: 1200px) 800px, 1200px"
-  loading="lazy"
-  alt="Description"
+    src="photo-800w.webp"
+    srcset="photo-400w.webp 400w, photo-800w.webp 800w, photo-1200w.webp 1200w"
+    sizes="(max-width: 600px) 400px, (max-width: 1200px) 800px, 1200px"
+    loading="lazy"
+    alt="Description"
 >
 ```
 
@@ -32,8 +33,8 @@ Images are often the biggest assets on a page:
 ```nginx
 # Nginx configuration
 location /static/ {
-    expires 1y;
-    add_header Cache-Control "public, immutable";
+        expires 1y;
+        add_header Cache-Control "public, immutable";
 }
 ```
 
@@ -62,6 +63,7 @@ location /static/ {
 ## 4. Critical CSS
 
 Inline critical CSS in the `<head>` to eliminate render-blocking:
+
 
 ```html
 <head>

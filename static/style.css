@@ -372,7 +372,7 @@ a.tag:hover {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   font-size: 0.875rem;
   line-height: 1.6;
-  font-family: "Fira Code", Consolas, "Source Code Pro", "LXGW WenKai", "WenQuanYi Micro Hei", "Microsoft YaHei", sans-serif;
+  font-family: "Fira Code", Consolas, "Source Code Pro", Menlo, Monaco, "Courier New", monospace, "LXGW WenKai", "WenQuanYi Micro Hei", "Microsoft YaHei", sans-serif;
   background: var(--bg);
   border: 1px solid var(--border);
   position: relative;
@@ -406,7 +406,7 @@ a.tag:hover {
   white-space: pre;
   tab-size: 4;
 }
-.code-table .lc span { font-family: inherit; }
+.code-table .lc span { font-family: inherit; white-space: pre; }
 
 @media (prefers-color-scheme: dark) {
   .code-block {

@@ -88,11 +88,11 @@ Always communicate deprecation clearly:
 
 ```json
 {
-  "Sunset": "Sat, 31 Dec 2025 23:59:59 GMT",
-  "Deprecation": "true"
+    "Sunset": "Sat, 31 Dec 2025 23:59:59 GMT",
+    "Deprecation": "true"
 }
-```
 
+```
 Include a link to migration docs in response headers.
 
 ## API Gateway Routing

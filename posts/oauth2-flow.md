@@ -134,13 +134,13 @@ For server-to-server communication without user context:
 
 ```bash
 curl -X POST https://auth.example.com/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=$CLIENT_ID" \
-  -d "client_secret=$CLIENT_SECRET" \
-  -d "scope=api:read api:write"
-```
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=client_credentials" \
+    -d "client_id=$CLIENT_ID" \
+    -d "client_secret=$CLIENT_SECRET" \
+    -d "scope=api:read api:write"
 
+```
 ## Common Mistakes
 
 - Storing client secrets in mobile apps or browser bundles

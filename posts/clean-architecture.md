@@ -19,25 +19,27 @@ Frameworks 鈫?Interface Adapters 鈫?Use Cases 鈫?Entities
 This is enforced entirely through dependency inversion 鈥?inner layers define interfaces; outer layers implement them.
 
 ```typescript
+
 // Inner layer 鈥?Use Case
 interface UserRepository {
-  findById(id: string): Promise<User>;
+    findById(id: string): Promise<User>;
 }
 
 class GetUserUseCase {
-  constructor(private repo: UserRepository) {}
+    constructor(private repo: UserRepository) {}
 
-  async execute(id: string): Promise<UserDTO> {
-    const user = await this.repo.findById(id);
-    if (!user) throw new NotFoundError("User not found");
-    return { name: user.name, email: user.email };
-  }
+    async execute(id: string): Promise<UserDTO> {
+        const user = await this.repo.findById(id);
+        if (!user) throw new NotFoundError("User not found");
+        return { name: user.name, email: user.email };
+    }
 }
 ```
 
 ## Entities
 
 Entities are the innermost layer. They contain enterprise-wide business rules and are the least likely to change when something external changes.
+
 
 ```typescript
 class User {
@@ -65,23 +67,23 @@ Use cases contain application-specific business rules. They orchestrate the flow
 
 ```typescript
 class CreateOrderUseCase {
-  constructor(
-    private orderRepo: OrderRepository,
-    private paymentGateway: PaymentGateway,
-    private mailer: Mailer,
-  ) {}
+    constructor(
+        private orderRepo: OrderRepository,
+        private paymentGateway: PaymentGateway,
+        private mailer: Mailer,
+    ) {}
 
-  async execute(input: CreateOrderInput): Promise<OrderDTO> {
-    const order = Order.create(input.items, input.customerId);
-    const payment = await this.paymentGateway.charge(order.total);
-    order.confirmPayment(payment.transactionId);
-    await this.orderRepo.save(order);
-    await this.mailer.sendConfirmation(order);
-    return OrderDTO.from(order);
-  }
+    async execute(input: CreateOrderInput): Promise<OrderDTO> {
+        const order = Order.create(input.items, input.customerId);
+        const payment = await this.paymentGateway.charge(order.total);
+        order.confirmPayment(payment.transactionId);
+        await this.orderRepo.save(order);
+        await this.mailer.sendConfirmation(order);
+        return OrderDTO.from(order);
+    }
 }
-```
 
+```
 Each use case should do exactly one thing. If you find yourself mixing concerns, split the use case.
 
 ## Interface Adapters
@@ -89,18 +91,19 @@ Each use case should do exactly one thing. If you find yourself mixing concerns,
 This layer converts data between the format most convenient for use cases and the format most convenient for external systems.
 
 ```typescript
+
 // Controller 鈥?adapts HTTP request to use case input
 class OrderController {
-  constructor(private createOrder: CreateOrderUseCase) {}
+    constructor(private createOrder: CreateOrderUseCase) {}
 
-  async handle(req: Request, res: Response): Promise<void> {
-    const input: CreateOrderInput = {
-      customerId: req.user.id,
-      items: req.body.items.map(ItemDTO.fromJSON),
-    };
-    const result = await this.createOrder.execute(input);
-    res.status(201).json(result);
-  }
+    async handle(req: Request, res: Response): Promise<void> {
+        const input: CreateOrderInput = {
+            customerId: req.user.id,
+            items: req.body.items.map(ItemDTO.fromJSON),
+        };
+        const result = await this.createOrder.execute(input);
+        res.status(201).json(result);
+    }
 }
 ```
 
@@ -121,6 +124,7 @@ The pragmatic approach is to apply Clean Architecture only to the parts of your 
 ## Testing Without Infrastructure
 
 Because dependencies point inward, you can test use cases without spinning up databases or HTTP servers.
+
 
 ```typescript
 const mockRepo: UserRepository = {

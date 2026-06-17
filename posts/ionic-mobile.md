@@ -17,6 +17,7 @@ Ionic is a framework for building cross-platform mobile applications using web t
 ## Project Setup
 
 ```bash
+
 npm install -g @ionic/cli
 ionic start my-app tabs --type=angular
 cd my-app
@@ -29,29 +30,29 @@ Ionic provides a comprehensive set of UI components that look native on each pla
 
 ```html
 <ion-header>
-  <ion-toolbar>
-    <ion-title>My App</ion-title>
-  </ion-toolbar>
+    <ion-toolbar>
+        <ion-title>My App</ion-title>
+    </ion-toolbar>
 </ion-header>
 
 <ion-content>
-  <ion-list>
-    <ion-item>
-      <ion-avatar slot="start">
-        <img src="avatar.jpg" alt="avatar" />
-      </ion-avatar>
-      <ion-label>
-        <h2>John Doe</h2>
-        <p>Online</p>
-      </ion-label>
-    </ion-item>
-  </ion-list>
+    <ion-list>
+        <ion-item>
+            <ion-avatar slot="start">
+                <img src="avatar.jpg" alt="avatar" />
+            </ion-avatar>
+            <ion-label>
+                <h2>John Doe</h2>
+                <p>Online</p>
+            </ion-label>
+        </ion-item>
+    </ion-list>
 
-  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-    <ion-fab-button>
-      <ion-icon name="add"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
+    <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+        <ion-fab-button>
+            <ion-icon name="add"></ion-icon>
+        </ion-fab-button>
+    </ion-fab>
 </ion-content>
 ```
 
@@ -61,19 +62,19 @@ Ionic integrates seamlessly with Angular Router:
 
 ```typescript
 const routes: Routes = [
-  {
-    path: 'tabs',
-    loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule)
-  },
-  {
-    path: 'detail/:id',
-    loadChildren: () => import('./detail/detail.module').then(m => m.DetailPageModule)
-  },
-  {
-    path: '',
-    redirectTo: '/tabs/home',
-    pathMatch: 'full'
-  }
+    {
+        path: 'tabs',
+        loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule)
+    },
+    {
+        path: 'detail/:id',
+        loadChildren: () => import('./detail/detail.module').then(m => m.DetailPageModule)
+    },
+    {
+        path: '',
+        redirectTo: '/tabs/home',
+        pathMatch: 'full'
+    }
 ];
 ```
 
@@ -84,24 +85,25 @@ import { Camera, CameraResultType } from '@capacitor/camera';
 import { Geolocation } from '@capacitor/geolocation';
 
 async function takePicture() {
-  const image = await Camera.getPhoto({
-    quality: 90,
-    allowEditing: true,
-    resultType: CameraResultType.Uri
-  });
-  return image.webPath;
+    const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: true,
+        resultType: CameraResultType.Uri
+    });
+    return image.webPath;
 }
 
 async function getCurrentPosition() {
-  const coordinates = await Geolocation.getCurrentPosition();
-  return {
-    lat: coordinates.coords.latitude,
-    lng: coordinates.coords.longitude
-  };
+    const coordinates = await Geolocation.getCurrentPosition();
+    return {
+        lat: coordinates.coords.latitude,
+        lng: coordinates.coords.longitude
+    };
 }
 ```
 
 ## Building for Production
+
 
 ```bash
 # Build for iOS
@@ -130,20 +132,20 @@ npx cap sync
 ```json
 // capacitor.config.json
 {
-  "appId": "com.example.myapp",
-  "appName": "MyApp",
-  "webDir": "www",
-  "server": {
-    "androidScheme": "https"
-  },
-  "plugins": {
-    "SplashScreen": {
-      "launchShowDuration": 3000
+    "appId": "com.example.myapp",
+    "appName": "MyApp",
+    "webDir": "www",
+    "server": {
+        "androidScheme": "https"
+    },
+    "plugins": {
+        "SplashScreen": {
+            "launchShowDuration": 3000
+        }
     }
-  }
 }
-```
 
+```
 ## Performance Optimization
 
 - Use lazy loading for feature modules

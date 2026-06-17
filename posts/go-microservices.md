@@ -71,20 +71,20 @@ For inter-service communication, gRPC is more efficient than REST:
 syntax = "proto3";
 
 service UserService {
-  rpc GetUser (GetUserRequest) returns (User);
+    rpc GetUser (GetUserRequest) returns (User);
 }
 
 message GetUserRequest {
-  string user_id = 1;
+    string user_id = 1;
 }
 
 message User {
-  string id = 1;
-  string name = 2;
-  string email = 3;
+    string id = 1;
+    string name = 2;
+    string email = 3;
 }
-```
 
+```
 ```go
 func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
     user, err := s.db.FindUser(req.UserId)

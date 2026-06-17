@@ -47,17 +47,17 @@ Overlay networks enable communication between containers on different Docker hos
 ```yaml
 version: "3.8"
 services:
-  app:
-    image: myapp
-    networks:
-      - overlay-net
+    app:
+        image: myapp
+        networks:
+            - overlay-net
 
 networks:
-  overlay-net:
-    driver: overlay
-    attachable: true
-```
+    overlay-net:
+        driver: overlay
+        attachable: true
 
+```
 ## Network Security
 
 - Place only containers that need to communicate on the same network

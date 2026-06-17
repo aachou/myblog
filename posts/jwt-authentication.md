@@ -22,15 +22,17 @@ SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
 The header typically consists of the token type and the signing algorithm:
 
 ```json
+
 {
-  "alg": "HS256",
-  "typ": "JWT"
+    "alg": "HS256",
+    "typ": "JWT"
 }
 ```
 
 ### Payload
 
 The payload contains claims. Registered claims include `sub` (subject), `iat` (issued at), and `exp` (expiration):
+
 
 ```json
 {

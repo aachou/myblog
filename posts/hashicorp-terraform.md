@@ -17,32 +17,34 @@ Terraform by HashiCorp is the industry standard for Infrastructure as Code. It l
 ## Basic Configuration
 
 ```hcl
+
 terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 4.0"
+    required_providers {
+        aws = {
+            source  = "hashicorp/aws"
+            version = "~> 4.0"
+        }
     }
-  }
 }
 
 provider "aws" {
-  region = "us-west-2"
+    region = "us-west-2"
 }
 
 resource "aws_instance" "web" {
-  ami           = "ami-0c55b159cbfafe1f0"
-  instance_type = "t2.micro"
+    ami           = "ami-0c55b159cbfafe1f0"
+    instance_type = "t2.micro"
 
-  tags = {
-    Name = "WebServer"
-  }
+    tags = {
+        Name = "WebServer"
+    }
 }
 ```
 
 ## State Management
 
 State files contain sensitive information. Never commit them to Git. Use remote backends instead:
+
 
 ```hcl
 terraform {
@@ -61,25 +63,25 @@ Modules promote reuse across environments:
 
 ```hcl
 module "vpc" {
-  source = "terraform-aws-modules/vpc/aws"
-  version = "3.14.0"
+    source = "terraform-aws-modules/vpc/aws"
+    version = "3.14.0"
 
-  name = "my-vpc"
-  cidr = "10.0.0.0/16"
+    name = "my-vpc"
+    cidr = "10.0.0.0/16"
 
-  azs             = ["us-west-2a", "us-west-2b"]
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+    azs             = ["us-west-2a", "us-west-2b"]
+    private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+    public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
 
-  enable_nat_gateway = true
-  enable_vpn_gateway = true
+    enable_nat_gateway = true
+    enable_vpn_gateway = true
 
-  tags = {
-    Environment = "production"
-  }
+    tags = {
+        Environment = "production"
+    }
 }
-```
 
+```
 ## Workspaces
 
 Workspaces manage multiple environments with the same configuration:

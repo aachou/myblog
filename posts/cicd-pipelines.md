@@ -16,43 +16,44 @@ Continuous Integration and Continuous Deployment (CI/CD) automates the software 
 ## GitHub Actions Example
 
 ```yaml
+
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [main]
+    push:
+        branches: [main]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm ci
-      - run: npm test
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - uses: actions/setup-node@v3
+                with:
+                    node-version: 18
+            - run: npm ci
+            - run: npm test
 
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-artifact@v3
-        with:
-          name: build
-          path: dist/
+    build:
+        needs: test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - run: npm ci
+            - run: npm run build
+            - uses: actions/upload-artifact@v3
+                with:
+                    name: build
+                    path: dist/
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: build
-      - run: ./deploy.sh
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v3
+                with:
+                    name: build
+            - run: ./deploy.sh
 ```
 
 ## Testing Stages
@@ -83,6 +84,7 @@ npm run test:e2e
 ## Environment Variables and Secrets
 
 Never hardcode secrets in pipeline files. Use repository secrets:
+
 
 ```yaml
 - run: echo "${{ secrets.DEPLOY_KEY }}" | base64 --decode > key.pem

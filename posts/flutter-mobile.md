@@ -12,25 +12,26 @@ Flutter is Google's UI toolkit for building natively compiled applications for m
 In Flutter, everything is a widget 鈥?from structural elements like buttons to stylistic elements like padding:
 
 ```dart
+
 import 'package:flutter/material.dart';
 
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+    const MyApp({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      home: Scaffold(
-        appBar: AppBar(title: const Text('Hello Flutter')),
-        body: const Center(
-          child: Text('Hello, World!'),
-        ),
-      ),
-    );
-  }
+    @override
+    Widget build(BuildContext context) {
+        return MaterialApp(
+            title: 'Flutter Demo',
+            home: Scaffold(
+                appBar: AppBar(title: const Text('Hello Flutter')),
+                body: const Center(
+                    child: Text('Hello, World!'),
+                ),
+            ),
+        );
+    }
 }
 ```
 
@@ -46,6 +47,7 @@ Managing state is a central concern in Flutter apps. Popular approaches include:
 | Riverpod | riverpod | Testable architecture |
 
 ### Example with Provider
+
 
 ```dart
 class Counter with ChangeNotifier {
@@ -73,37 +75,38 @@ import 'package:flutter/services.dart';
 static const platform = MethodChannel('samples.flutter.dev/battery');
 
 Future<String> getBatteryLevel() async {
-  try {
-    final result = await platform.invokeMethod<int>('getBatteryLevel');
-    return 'Battery level: $result%';
-  } on PlatformException catch (e) {
-    return "Failed: '${e.message}'";
-  }
+    try {
+        final result = await platform.invokeMethod<int>('getBatteryLevel');
+        return 'Battery level: $result%';
+    } on PlatformException catch (e) {
+        return "Failed: '${e.message}'";
+    }
 }
-```
 
+```
 ## Layouts
 
 Flutter uses a flexible layout system based on rows, columns, and stacks:
 
 ```dart
+
 Column(
-  mainAxisAlignment: MainAxisAlignment.center,
-  children: [
-    const Text('Welcome'),
-    Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        Icon(Icons.star, color: Colors.yellow),
-        Icon(Icons.star, color: Colors.yellow),
-        Icon(Icons.star, color: Colors.yellow),
-      ],
-    ),
-    ElevatedButton(
-      onPressed: () {},
-      child: const Text('Press me'),
-    ),
-  ],
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+        const Text('Welcome'),
+        Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+                Icon(Icons.star, color: Colors.yellow),
+                Icon(Icons.star, color: Colors.yellow),
+                Icon(Icons.star, color: Colors.yellow),
+            ],
+        ),
+        ElevatedButton(
+            onPressed: () {},
+            child: const Text('Press me'),
+        ),
+    ],
 )
 ```
 
@@ -113,6 +116,7 @@ Column(
 - Avoid rebuilding widgets unnecessarily
 - Use `ListView.builder` for long lists
 - Profile with the Flutter DevTools
+
 
 ```dart
 // Good 鈥?lazily builds items
@@ -126,11 +130,11 @@ ListView.builder(
 
 ```dart
 testWidgets('Counter increments', (tester) async {
-  await tester.pumpWidget(const MyApp());
-  await tester.tap(find.byIcon(Icons.add));
-  await tester.pump();
-  expect(find.text('1'), findsOneWidget);
+    await tester.pumpWidget(const MyApp());
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
+    expect(find.text('1'), findsOneWidget);
 });
-```
 
+```
 Flutter's hot reload and expressive widget system make it a joy to build cross-platform apps.

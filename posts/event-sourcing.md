@@ -28,14 +28,15 @@ The current state is derived by replaying all events for that entity.
 The event store is an append-only database that persists events.
 
 ```typescript
-interface EventStore {
-  appendEvents(
-    streamId: string,
-    expectedVersion: number,
-    events: DomainEvent[]
-  ): Promise<void>;
 
-  readEvents(streamId: string): Promise<DomainEvent[]>;
+interface EventStore {
+    appendEvents(
+        streamId: string,
+        expectedVersion: number,
+        events: DomainEvent[]
+    ): Promise<void>;
+
+    readEvents(streamId: string): Promise<DomainEvent[]>;
 }
 ```
 
@@ -44,6 +45,7 @@ Concurrency control is handled through optimistic locking with version numbers.
 ## Aggregates and Projections
 
 An aggregate replays events to rebuild its current state. A projection reads events from the store and builds query-optimized views.
+
 
 ```typescript
 class BankAccount {
@@ -77,35 +79,36 @@ Events are immutable once written. Schema changes require versioning.
 
 ```typescript
 class UserCreatedV1 {
-  type = "UserCreated";
-  version = 1;
-  constructor(
-    public userId: string,
-    public name: string,
-    public email: string,
-  ) {}
+    type = "UserCreated";
+    version = 1;
+    constructor(
+        public userId: string,
+        public name: string,
+        public email: string,
+    ) {}
 }
 
 class UserCreatedV2 {
-  type = "UserCreated";
-  version = 2;
-  constructor(
-    public userId: string,
-    public name: string,
-    public email: string,
-    public phone?: string,
-  ) {}
+    type = "UserCreated";
+    version = 2;
+    constructor(
+        public userId: string,
+        public name: string,
+        public email: string,
+        public phone?: string,
+    ) {}
 }
-```
 
+```
 Upcasters convert old event versions to the current schema during replay.
 
 ```typescript
+
 function upcast(event: any): DomainEvent {
-  if (event.type === "UserCreated" && event.version === 1) {
-    return new UserCreatedV2(event.userId, event.name, event.email);
-  }
-  return event;
+    if (event.type === "UserCreated" && event.version === 1) {
+        return new UserCreatedV2(event.userId, event.name, event.email);
+    }
+    return event;
 }
 ```
 
@@ -135,6 +138,7 @@ Avoid it for simple CRUD applications, small projects, or domains where events h
 1. **Event schema evolution** 鈥?without careful versioning, old events become unreadable
 2. **Performance** 鈥?replaying millions of events requires snapshots
 3. **Snapshot strategy** 鈥?periodic snapshots prevent unbounded replay
+
 
 ```typescript
 function rebuildState(snapshot: Snapshot, subsequentEvents: DomainEvent[]): Aggregate {

@@ -39,6 +39,7 @@ Read: 10,000 redirects/second
 ## Step 2: Scale Estimation
 
 ```python
+
 # Traffic estimates
 writes_per_second = 100  # new URLs
 reads_per_second = 10000  # redirects
@@ -52,23 +53,23 @@ cache_size = reads_per_second * 3600 * 500  # 1 hour of 500B entries
 
 ```
 URLs
-  id: bigint (primary key)
-  short_code: varchar(7) (unique index)
-  original_url: text
-  created_at: timestamp
-  user_id: bigint (foreign key)
+    id: bigint (primary key)
+    short_code: varchar(7) (unique index)
+    original_url: text
+    created_at: timestamp
+    user_id: bigint (foreign key)
 
 Users
-  id: bigint (primary key)
-  email: varchar(255)
-  created_at: timestamp
+    id: bigint (primary key)
+    email: varchar(255)
+    created_at: timestamp
 ```
 
 ## Step 4: High-Level Design
 
 ```mermaid
 Client -> Load Balancer -> Web Servers -> Cache -> Database
-                                    -> Queue -> Analytics
+                                                                        -> Queue -> Analytics
 ```
 
 Key components:
@@ -90,6 +91,7 @@ Key components:
 | Analytics | Stream processing with Kafka |
 
 ## Database Sharding
+
 
 ```python
 def get_shard(short_code: str) -> int:

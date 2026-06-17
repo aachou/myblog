@@ -18,22 +18,24 @@ Svelte is a radical approach to building user interfaces. Unlike React or Vue, S
 ## Your First Component
 
 ```svelte
+
 <script>
-  let name = 'world';
+    let name = 'world';
 </script>
 
 <h1>Hello {name}!</h1>
 
 <style>
-  h1 {
-    color: purple;
-  }
+    h1 {
+        color: purple;
+    }
 </style>
 ```
 
 ## Reactivity
 
 Svelte's reactivity is declarative:
+
 
 ```svelte
 <script>
@@ -58,40 +60,42 @@ Svelte's reactivity is declarative:
 ```svelte
 <!-- Card.svelte -->
 <script>
-  export let title;
-  export let content;
+    export let title;
+    export let content;
 </script>
 
 <div class="card">
-  <h2>{title}</h2>
-  <p>{content}</p>
+    <h2>{title}</h2>
+    <p>{content}</p>
 </div>
 
 <!-- App.svelte -->
 <script>
-  import Card from './Card.svelte';
+    import Card from './Card.svelte';
 </script>
 
 <Card title="Hello" content="World" />
-```
 
+```
 ## Conditional Rendering and Loops
 
 ```svelte
+
 {#if user.loggedIn}
-  <p>Welcome back, {user.name}!</p>
+    <p>Welcome back, {user.name}!</p>
 {:else}
-  <button on:click={login}>Log in</button>
+    <button on:click={login}>Log in</button>
 {/if}
 
 <ul>
-  {#each items as item, i}
-    <li>{i + 1}: {item.name}</li>
-  {/each}
+    {#each items as item, i}
+        <li>{i + 1}: {item.name}</li>
+    {/each}
 </ul>
 ```
 
 ## Stores: Shared State
+
 
 ```svelte
 <script>
@@ -121,32 +125,34 @@ Svelte's reactivity is declarative:
 
 ```svelte
 <script>
-  import { onMount } from 'svelte';
+    import { onMount } from 'svelte';
 
-  onMount(() => {
-    // Fetch data, set up intervals, etc.
-    return () => {
-      // Cleanup (runs on destroy)
-    };
-  });
+    onMount(() => {
+        // Fetch data, set up intervals, etc.
+        return () => {
+            // Cleanup (runs on destroy)
+        };
+    });
 </script>
-```
 
+```
 ## Bindings
 
 Two-way data binding is straightforward:
 
 ```svelte
+
 <input bind:value={name} />
 <input type="checkbox" bind:checked={agreed} />
 <select bind:value={selected}>
-  {#each options as option}
-    <option value={option}>{option}</option>
-  {/each}
+    {#each options as option}
+        <option value={option}>{option}</option>
+    {/each}
 </select>
 ```
 
 ## Transition Animations
+
 
 ```svelte
 <script>
