@@ -850,6 +850,7 @@ a.tag:hover {
   .post-card { padding: 16px; }
   .post-card h2 { font-size: 1.15rem; }
   .about-stats { grid-template-columns: 1fr; }
+  .site-title { text-align: center; flex: 1 1 100%; }
   .nav-links { justify-content: center; gap: 10px; }
   .search-form { flex: 1 1 100%; }
   .search-input { width: 100%; }

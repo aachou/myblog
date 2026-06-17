@@ -64,3 +64,19 @@ Sorted newest-first by date. Slug = filename stem.
 - **Dockerfile**: multi-stage (`rust:slim-bookworm` build → `debian:bookworm-slim` runtime). Copies `templates/`, `static/`, `pages/`, `posts/` into runtime.
 - **Config env vars**: `SITE_URL` (default `http://127.0.0.1:3000`), `SITE_TITLE`, `SITE_DESC`, `POSTS_PER_PAGE` (default `5`), `PORT` (default `3000`).
 - `notify` watcher works in dev; on Railway the app restarts on each deploy.
+
+## Release
+
+```bash
+# Bump version in Cargo.toml, then:
+git add Cargo.toml
+git commit -m "Bump version to v0.x.x"
+git tag v0.x.x
+git push
+git push origin v0.x.x
+gh release create v0.x.x --title "v0.x.x - Short Description" --notes "<description>
+
+### Category
+- Item
+- Item"
+```
