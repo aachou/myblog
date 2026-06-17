@@ -404,6 +404,7 @@ a.tag:hover {
 .code-table .lc {
   padding: 0 16px;
   white-space: pre;
+  tab-size: 4;
 }
 .code-table .lc span { font-family: inherit; }
 
