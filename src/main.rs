@@ -133,7 +133,8 @@ async fn main() {
         .layer(CompressionLayer::new())
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .unwrap();
     axum::serve(listener, app).await.unwrap();
