@@ -124,7 +124,7 @@ async fn main() {
         .layer(SetResponseHeaderLayer::overriding(
             axum::http::header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(
-                "default-src 'self'; style-src 'unsafe-inline' 'self'; img-src 'self' data:; frame-ancestors 'none'",
+                "default-src 'self'; script-src 'self' https://utteranc.es; style-src 'unsafe-inline' 'self'; img-src 'self' data:; frame-src https://utteranc.es; frame-ancestors 'none'",
             ),
         ))
         .layer(SetResponseHeaderLayer::overriding(

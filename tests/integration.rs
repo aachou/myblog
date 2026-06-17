@@ -237,7 +237,7 @@ fn setup_router(temp_dir: &std::path::Path) -> Router {
         .layer(SetResponseHeaderLayer::overriding(
             axum::http::header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(
-                "default-src 'self'; style-src 'unsafe-inline' 'self'; img-src 'self' data:; frame-ancestors 'none'",
+                "default-src 'self'; script-src 'self' https://utteranc.es; style-src 'unsafe-inline' 'self'; img-src 'self' data:; frame-src https://utteranc.es; frame-ancestors 'none'",
             ),
         ))
         .layer(SetResponseHeaderLayer::overriding(
@@ -348,6 +348,33 @@ async fn test_post_handler_valid_slug_200() {
         axum::http::Request::builder().uri("/post/valid-post").body(axum::body::Body::empty()).unwrap()
     ).await.unwrap();
     assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_post_page_has_utterances_script() {
+    use http_body_util::BodyExt;
+
+    let dir = std::env::temp_dir().join(format!("myblog_utt_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Utterances Test\"\ndate = \"2024-06-15\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("utt-test.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/post/utt-test").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+    assert!(html.contains("utteranc.es/client.js"), "Post page should include utterances script");
+    assert!(html.contains("repo=\"aachou/myblog\""), "Post page should include repo config");
+    assert!(html.contains("issue-term=\"pathname\""), "Post page should use pathname issue term");
+    assert!(html.contains("theme=\"preferred-color-scheme\""), "Post page should use preferred-color-scheme");
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -532,6 +559,9 @@ async fn test_response_headers() {
         .expect("CSP header should be present")
         .to_str().unwrap();
     assert!(csp.contains("default-src 'self'"), "CSP should contain default-src 'self': {}", csp);
+    assert!(csp.contains("https://utteranc.es"), "CSP should allow utteranc.es: {}", csp);
+    assert!(csp.contains("script-src 'self' https://utteranc.es"), "CSP should allow utteranc.es scripts: {}", csp);
+    assert!(csp.contains("frame-src https://utteranc.es"), "CSP should allow utteranc.es frames: {}", csp);
 
     let no_sniff = response.headers().get("x-content-type-options")
         .expect("X-Content-Type-Options header should be present")

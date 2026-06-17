@@ -32,6 +32,17 @@
     {{ post.content_html | safe }}
   </div>
 
+  <section class="comments">
+    <h3>Comments</h3>
+    <script src="https://utteranc.es/client.js"
+            repo="aachou/myblog"
+            issue-term="pathname"
+            theme="preferred-color-scheme"
+            crossorigin="anonymous"
+            async>
+    </script>
+  </section>
+
   {% if related | length > 0 %}
   <section class="related-posts">
     <h3>Related Posts</h3>

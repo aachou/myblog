@@ -946,6 +946,7 @@ name = "myblog"
 version = "0.2.5"
 dependencies = [
  "axum",
+ "http-body-util",
  "notify",
  "pulldown-cmark",
  "regex",

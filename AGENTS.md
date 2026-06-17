@@ -38,6 +38,7 @@ All in one inner router with `Cache-Control: no-cache`. Outer router adds static
 - **Regex**: all hot-path regex cached via `OnceLock` (heading IDs, TOC extraction, code block highlighting, date validation).
 - **RwLock poisoning recovery**: `lock().unwrap_or_else(|e| e.into_inner())` on all 3 locks.
 - **JS** (`static/script.js`): `/` focuses search input; `ArrowLeft`/`ArrowRight` navigate prev/next post.
+- **Comments**: [utterances](https://utteranc.es) — GitHub Issues-based, client-side only. Script in `templates/post.html`. CSP allows `script-src` + `frame-src` for `https://utteranc.es`. Theme: `preferred-color-scheme`. Repo: `aachou/myblog`.
 
 ## Post format (`posts/*.md`)
 
@@ -69,10 +70,7 @@ Sorted newest-first by date. Slug = filename stem.
 
 ```bash
 # Bump version in Cargo.toml, then:
-git add Cargo.toml
-git commit -m "Bump version to v0.x.x"
 git tag v0.x.x
-git push
 git push origin v0.x.x
 gh release create v0.x.x --title "v0.x.x - Short Description" --notes "<description>
 
@@ -80,3 +78,4 @@ gh release create v0.x.x --title "v0.x.x - Short Description" --notes "<descript
 - Item
 - Item"
 ```
+

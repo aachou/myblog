@@ -9,7 +9,8 @@ Personal blog built with **Rust + Axum 0.7**. Flat-file, no database. Markdown p
 - Tag cloud, archive by year/month, full-text search
 - Related posts, pagination, reading time
 - CSP headers, XSS protection, accessibility (skip-link, aria-labels)
-- 117 tests (85 unit + 32 integration), zero clippy warnings
+- Comments via [utterances](https://utteranc.es) (GitHub Issues-based, client-side)
+- 118 tests (85 unit + 33 integration), zero clippy warnings
 
 ## Quick Start
 

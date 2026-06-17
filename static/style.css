@@ -878,3 +878,16 @@ a.tag:hover {
 .pop-tags-section { margin-top: 32px; }
 .pop-tags-section h2 { margin-bottom: 24px; }
 .posts h2 { margin-bottom: 16px; }
+.comments {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+.comments h3 {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+.comments .utterances {
+  max-width: 100%;
+}
