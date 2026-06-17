@@ -11,5 +11,6 @@ COPY --from=build /app/target/release/myblog .
 COPY templates ./templates
 COPY static ./static
 COPY pages ./pages
+COPY posts ./posts
 EXPOSE 3000
 CMD ["./myblog"]
