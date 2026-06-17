@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 use syntect::highlighting::ThemeSet;
 use syntect::html::styled_line_to_highlighted_html;
-use syntect::parsing::SyntaxSet;
+use syntect::parsing::{SyntaxReference, SyntaxSet};
 use syntect::easy::HighlightLines;
 use syntect::util::LinesWithEndings;
 
@@ -231,10 +231,27 @@ fn highlight_code_blocks(html: &str) -> String {
     }).to_string()
 }
 
+fn resolve_syntax<'a>(lang: &'a str, ss: &'a SyntaxSet) -> Option<&'a SyntaxReference> {
+    if let Some(syntax) = ss.find_syntax_by_token(lang) {
+        return Some(syntax);
+    }
+    let mapped = match lang {
+        "jsx" | "tsx" => "js",
+        "typescript" => "js",
+        "kotlin" => "java",
+        "dart" => "js",
+        "vue" | "svelte" => "html",
+        "elixir" => "rb",
+        _ => return None,
+    };
+    ss.find_syntax_by_extension(mapped)
+        .or_else(|| ss.find_syntax_by_name(mapped))
+}
+
 fn format_code_block(code: &str, lang: &str, ss: &SyntaxSet, theme: &syntect::highlighting::Theme) -> String {
     let lang_attr = if lang.is_empty() { String::new() } else { format!(" data-lang=\"{}\"", lang) };
 
-    let syntax = ss.find_syntax_by_token(lang);
+    let syntax = resolve_syntax(lang, ss);
     if syntax.is_none() {
         let lines: Vec<String> = code.split('\n').map(|s| s.trim_end_matches('\r').to_string()).collect();
         let mut out = format!("<div class=\"code-block\"{}>", lang_attr);
@@ -679,6 +696,95 @@ mod tests {
         assert!(result.contains("code-block"), "should have code-block wrapper");
         assert!(!result.contains("data-lang"), "should NOT have language attribute for plain blocks");
         assert!(result.contains("<table"), "should include table markup");
+    }
+
+    #[test]
+    fn test_resolve_syntax_jsx() {
+        let ss = get_syntax_set();
+        let syntax = resolve_syntax("jsx", ss);
+        assert!(syntax.is_some(), "jsx should resolve to JavaScript");
+        assert_eq!(syntax.unwrap().name, "JavaScript");
+    }
+
+    #[test]
+    fn test_resolve_syntax_typescript() {
+        let ss = get_syntax_set();
+        let syntax = resolve_syntax("typescript", ss);
+        assert!(syntax.is_some(), "typescript should resolve to JavaScript");
+        assert_eq!(syntax.unwrap().name, "JavaScript");
+    }
+
+    #[test]
+    fn test_resolve_syntax_kotlin() {
+        let ss = get_syntax_set();
+        let syntax = resolve_syntax("kotlin", ss);
+        assert!(syntax.is_some(), "kotlin should resolve to Java");
+        assert_eq!(syntax.unwrap().name, "Java");
+    }
+
+    #[test]
+    fn test_resolve_syntax_dart() {
+        let ss = get_syntax_set();
+        let syntax = resolve_syntax("dart", ss);
+        assert!(syntax.is_some(), "dart should resolve to JavaScript");
+        assert_eq!(syntax.unwrap().name, "JavaScript");
+    }
+
+    #[test]
+    fn test_resolve_syntax_vue() {
+        let ss = get_syntax_set();
+        let syntax = resolve_syntax("vue", ss);
+        assert!(syntax.is_some(), "vue should resolve to HTML");
+        assert_eq!(syntax.unwrap().name, "HTML");
+    }
+
+    #[test]
+    fn test_resolve_syntax_svelte() {
+        let ss = get_syntax_set();
+        let syntax = resolve_syntax("svelte", ss);
+        assert!(syntax.is_some(), "svelte should resolve to HTML");
+        assert_eq!(syntax.unwrap().name, "HTML");
+    }
+
+    #[test]
+    fn test_resolve_syntax_elixir() {
+        let ss = get_syntax_set();
+        let syntax = resolve_syntax("elixir", ss);
+        assert!(syntax.is_some(), "elixir should resolve to Ruby");
+        assert_eq!(syntax.unwrap().name, "Ruby");
+    }
+
+    #[test]
+    fn test_resolve_syntax_unknown() {
+        let ss = get_syntax_set();
+        assert!(resolve_syntax("mermaid", ss).is_none(), "mermaid should not be resolved");
+        assert!(resolve_syntax("hcl", ss).is_none(), "hcl should not be resolved");
+        assert!(resolve_syntax("unknown_language", ss).is_none(), "unknown language should not be resolved");
+    }
+
+    #[test]
+    fn test_highlight_code_blocks_jsx() {
+        let html = r#"<pre><code class="language-jsx">const x = <div /></code></pre>"#;
+        let result = highlight_code_blocks(html);
+        assert!(result.contains("code-block"), "should have code-block wrapper");
+        assert!(result.contains(r#"data-lang="jsx""#), "should preserve original jsx language attribute");
+    }
+
+    #[test]
+    fn test_highlight_code_blocks_typescript() {
+        let html = r#"<pre><code class="language-typescript">const x: number = 1</code></pre>"#;
+        let result = highlight_code_blocks(html);
+        assert!(result.contains("code-block"), "should have code-block wrapper");
+        assert!(result.contains(r#"data-lang="typescript""#), "should preserve original language attribute");
+    }
+
+    #[test]
+    fn test_highlight_code_blocks_unmapped() {
+        let html = r#"<pre><code class="language-mermaid">graph TD; A-->B;</code></pre>"#;
+        let result = highlight_code_blocks(html);
+        assert!(result.contains("code-block"), "should have code-block wrapper");
+        assert!(result.contains(r#"data-lang="mermaid""#), "should preserve original language attribute");
+        assert!(!result.contains("<span style"), "should NOT have syntax-highlighted spans");
     }
 
     #[test]

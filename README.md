@@ -4,12 +4,12 @@ Personal blog built with **Rust + Axum 0.7**. Flat-file, no database. Markdown p
 
 ## Features
 
-- Markdown rendering with syntax highlighting (syntect)
+- Markdown rendering with syntax highlighting (syntect, with alias mapping for common language names)
 - RSS feed & XML sitemap
 - Tag cloud, archive by year/month, full-text search
 - Related posts, pagination, reading time
 - CSP headers, XSS protection, accessibility (skip-link, aria-labels)
-- 106 tests (74 unit + 32 integration), zero clippy warnings
+- 117 tests (85 unit + 32 integration), zero clippy warnings
 
 ## Quick Start
 
