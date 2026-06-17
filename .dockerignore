@@ -1,0 +1,5 @@
+.git/
+target/
+posts/
+tests/
+*.md

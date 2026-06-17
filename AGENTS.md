@@ -52,3 +52,15 @@ Slug is derived from the filename (not frontmatter). Posts sorted newest-first b
 - All regex in hot paths cached via `OnceLock`
 - Handlers that return `Response` vs `Html<String>`: feed/sitemap/fallback use `Response` for explicit status codes; all others use `Html<String>`
 - `RwLock` poisoning recovery pattern: `lock().unwrap_or_else(|e| e.into_inner())` on all 3 locks (tera, posts, watcher_state.posts)
+
+## Deployment
+
+- **Dockerfile**: multi-stage build, runtime image is `debian:bookworm-slim` (~20 MB)
+- **Config env vars** (set in platform dashboard):
+  - `SITE_URL` — public URL (e.g. `https://myblog.up.railway.app`)
+  - `SITE_TITLE` — default `MyBlog`
+  - `SITE_DESC` — default `A personal blog built with Rust and Axum`
+  - `POSTS_PER_PAGE` — default `5`
+- **Recommended platform**: Railway (auto-detect Dockerfile, free quota for personal blog)
+- **Note**: `notify` file watcher works in development; on Railway the app restarts on each deploy
+- **Local dev**: `cargo run` starts at `http://127.0.0.1:3000`
