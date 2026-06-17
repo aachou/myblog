@@ -831,7 +831,10 @@ a.tag:hover {
 
 @media (max-width: 640px) {
   .container { padding: 0 16px; }
-  nav { padding: 14px 16px; }
+  nav { padding: 14px 16px; gap: 10px; }
+  .nav-links { gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  .search-input { width: 110px; }
+  .search-input:focus { width: 140px; }
   .hero h1 { font-size: 1.8rem; }
   .hero p { font-size: 1rem; }
   .post-card { padding: 20px; }
@@ -847,6 +850,10 @@ a.tag:hover {
   .post-card { padding: 16px; }
   .post-card h2 { font-size: 1.15rem; }
   .about-stats { grid-template-columns: 1fr; }
+  .nav-links { justify-content: center; gap: 10px; }
+  .search-form { flex: 1 1 100%; }
+  .search-input { width: 100%; }
+  .search-input:focus { width: 100%; }
 }
 
 @keyframes fadeIn {
