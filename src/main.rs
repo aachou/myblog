@@ -99,7 +99,8 @@ async fn main() {
         }
     });
 
-    tracing::info!("Blog server listening on http://127.0.0.1:3000");
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
+    tracing::info!("Blog server listening on http://0.0.0.0:{}", port);
 
     let html_routes = Router::new()
         .route("/", get(handlers::index_handler))
@@ -133,7 +134,6 @@ async fn main() {
         .layer(CompressionLayer::new())
         .with_state(state);
 
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .unwrap();
