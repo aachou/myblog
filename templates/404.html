@@ -1,9 +1,46 @@
 {% extends "base.html" %}
 {% block title %}404 - Not Found{% endblock %}
 {% block content %}
-<div class="not-found">
+<section class="hero">
   <h1>404</h1>
-  <p>Oops! The page <strong>'{{ slug }}'</strong> could not be found.</p>
-  <p style="margin-top: 24px;"><a href="/">&larr; Back to Home</a></p>
-</div>
+  <p>Oops! The page
+    {% if slug %}
+    <strong>'{{ slug }}'</strong>
+    {% else %}
+    <strong>'{{ requested_path }}'</strong>
+    {% endif %}
+    could not be found.
+  </p>
+  <p>Maybe try searching for what you're looking for:</p>
+  <form action="/search" method="get" class="search-hero-form" role="search">
+    <input type="search" name="q" placeholder="Search posts..." class="search-hero-input" aria-label="Search posts">
+  </form>
+  <p class="hero-link"><a href="/">&larr; Back to Home</a></p>
+</section>
+
+{% if recent_posts %}
+<section class="posts">
+  <h2>Recent Posts</h2>
+  {% for post in recent_posts %}
+  <article class="post-card">
+    <h3><a href="/post/{{ post.slug }}">{{ post.frontmatter.title }}</a></h3>
+    <div class="post-meta">
+      <time>{{ post.frontmatter.date }}</time>
+      <span class="reading-time">{{ post.reading_time }} min read</span>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if pop_tags %}
+<section class="pop-tags-section">
+  <h2>Popular Tags</h2>
+  <div class="tags">
+    {% for tag in pop_tags %}
+    <a href="/tag/{{ tag }}" class="tag">{{ tag }}</a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}

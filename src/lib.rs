@@ -1,70 +1,43 @@
 pub mod post;
 pub mod handlers;
 
+use std::sync::OnceLock;
 use std::sync::{Arc, RwLock};
-use std::time::SystemTime;
 use tera::Tera;
 
-pub const POSTS_PER_PAGE: usize = 5;
-pub const SITE_URL: &str = "http://127.0.0.1:3000";
-pub const SITE_TITLE: &str = "MyBlog";
-pub const SITE_DESC: &str = "A personal blog built with Rust and Axum";
-
-#[allow(dead_code)]
-pub struct PostCache {
-    pub posts: Arc<Vec<post::Post>>,
-    pub last_mtime: Option<SystemTime>,
+pub fn posts_per_page() -> usize {
+    static V: OnceLock<usize> = OnceLock::new();
+    *V.get_or_init(|| {
+        std::env::var("POSTS_PER_PAGE").ok().and_then(|s| s.parse().ok()).unwrap_or(5)
+    })
 }
 
-#[allow(dead_code)]
+pub fn site_url() -> &'static str {
+    static V: OnceLock<String> = OnceLock::new();
+    V.get_or_init(|| {
+        std::env::var("SITE_URL").unwrap_or_else(|_| "http://127.0.0.1:3000".into())
+    })
+}
+
+pub fn site_title() -> &'static str {
+    static V: OnceLock<String> = OnceLock::new();
+    V.get_or_init(|| {
+        std::env::var("SITE_TITLE").unwrap_or_else(|_| "MyBlog".into())
+    })
+}
+
+pub fn site_desc() -> &'static str {
+    static V: OnceLock<String> = OnceLock::new();
+    V.get_or_init(|| {
+        std::env::var("SITE_DESC").unwrap_or_else(|_| "A personal blog built with Rust and Axum".into())
+    })
+}
+
 pub struct AppState {
-    pub tera: Tera,
-    pub post_cache: RwLock<PostCache>,
+    pub tera: RwLock<Tera>,
+    pub posts: RwLock<Arc<Vec<post::Post>>>,
 }
 
-fn posts_mtime() -> Option<SystemTime> {
-    let dir = std::fs::read_dir("posts").ok()?;
-    dir.filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "md"))
-        .filter_map(|e| e.metadata().ok())
-        .filter_map(|m| m.modified().ok())
-        .max()
-}
-
-fn recover<T>(e: std::sync::PoisonError<T>) -> T {
-    e.into_inner()
-}
-
-#[allow(dead_code)]
 pub fn get_cached_posts(state: &AppState) -> Arc<Vec<post::Post>> {
-    let current_mtime = posts_mtime();
-
-    {
-        let cache = state.post_cache.read().unwrap_or_else(recover);
-        if let (Some(cached), Some(current)) = (cache.last_mtime, current_mtime) {
-            if current <= cached && !cache.posts.is_empty() {
-                return Arc::clone(&cache.posts);
-            }
-        }
-    }
-
-    let mut cache = state.post_cache.write().unwrap_or_else(recover);
-    if let (Some(cached), Some(current)) = (cache.last_mtime, current_mtime) {
-        if current <= cached && !cache.posts.is_empty() {
-            return Arc::clone(&cache.posts);
-        }
-    }
-
-    match post::load_posts("posts") {
-        Ok(posts) => {
-            let posts = Arc::new(posts);
-            cache.posts = Arc::clone(&posts);
-            cache.last_mtime = current_mtime;
-            posts
-        }
-        Err(e) => {
-            tracing::warn!("Failed to reload posts: {}", e);
-            Arc::clone(&cache.posts)
-        }
-    }
+    state.posts.read().unwrap_or_else(|e| e.into_inner()).clone()
 }

@@ -14,5 +14,10 @@ tower-http = { version = "0.5", features = ["fs", "compression-gzip", "set-heade
 toml = "0.8"
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }
 regex = "1"
+notify = "7"
+url = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tower = "0.4"

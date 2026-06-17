@@ -4,7 +4,7 @@
 <section class="hero">
   <h1>Search Results</h1>
   <form action="/search" method="get" class="search-hero-form" role="search">
-    <input type="search" name="q" value="{{ query }}" placeholder="Search posts by title or tag..." class="search-hero-input" autofocus>
+    <input type="search" name="q" value="{{ query }}" placeholder="Search posts by title or tag..." class="search-hero-input" aria-label="Search posts" autofocus>
   </form>
   <p>{{ result_count }} result{% if result_count != 1 %}s{% endif %} for "{{ query }}"</p>
 </section>
@@ -30,37 +30,37 @@
 </section>
 {% elif query %}
 <section class="posts">
-  <article class="post-card" style="text-align: center; padding: 40px;">
-    <p style="color: var(--text-secondary);">No posts found matching "{{ query }}".</p>
-    <a href="/" style="margin-top: 12px; display: inline-block;">&larr; Back to Home</a>
+  <article class="post-card empty-state">
+    <p>No posts found matching "{{ query }}".</p>
+    <a href="/" class="back-home">&larr; Back to Home</a>
   </article>
 </section>
 {% endif %}
 
-{% if page_info.total > 1 %}
+    {% if page_info.total > 1 %}
 <nav class="pagination">
   {% if page_info.has_prev %}
-  <a href="/search?q={{ query }}&page={{ page_info.prev }}" class="page-btn prev">&larr; Previous</a>
+  <a href="/search?q={{ query_url }}&page={{ page_info.prev }}" class="page-btn prev">&larr; Previous</a>
   {% else %}
   <span class="page-btn disabled">&larr; Previous</span>
   {% endif %}
 
   <div class="page-numbers">
     {% if page_info.total > 5 %}
-    <a href="/search?q={{ query }}" class="page-num{% if page_info.current == 1 %} active{% endif %}">1</a>
+    <a href="/search?q={{ query_url }}" class="page-num{% if page_info.current == 1 %} active{% endif %}">1</a>
     {% if page_info.show_start_ellipsis %}<span class="page-ellipsis">&hellip;</span>{% endif %}
     {% endif %}
     {% for p in page_info.pages %}
-    <a href="/search?q={{ query }}&page={{ p }}" class="page-num{% if p == page_info.current %} active{% endif %}">{{ p }}</a>
+    <a href="/search?q={{ query_url }}&page={{ p }}" class="page-num{% if p == page_info.current %} active{% endif %}">{{ p }}</a>
     {% endfor %}
     {% if page_info.total > 5 %}
     {% if page_info.show_end_ellipsis %}<span class="page-ellipsis">&hellip;</span>{% endif %}
-    <a href="/search?q={{ query }}&page={{ page_info.total }}" class="page-num{% if page_info.current == page_info.total %} active{% endif %}">{{ page_info.total }}</a>
+    <a href="/search?q={{ query_url }}&page={{ page_info.total }}" class="page-num{% if page_info.current == page_info.total %} active{% endif %}">{{ page_info.total }}</a>
     {% endif %}
   </div>
 
   {% if page_info.has_next %}
-  <a href="/search?q={{ query }}&page={{ page_info.next }}" class="page-btn next">Next &rarr;</a>
+  <a href="/search?q={{ query_url }}&page={{ page_info.next }}" class="page-btn next">Next &rarr;</a>
   {% else %}
   <span class="page-btn disabled">Next &rarr;</span>
   {% endif %}

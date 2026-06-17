@@ -10,6 +10,11 @@ use syntect::parsing::SyntaxSet;
 use syntect::easy::HighlightLines;
 use syntect::util::LinesWithEndings;
 
+static DATE_RE: OnceLock<Regex> = OnceLock::new();
+fn is_valid_date(date: &str) -> bool {
+    DATE_RE.get_or_init(|| Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap()).is_match(date)
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Frontmatter {
     pub title: String,
@@ -39,18 +44,17 @@ pub struct Post {
 
 fn get_syntax_set() -> &'static SyntaxSet {
     static SS: OnceLock<SyntaxSet> = OnceLock::new();
-    SS.get_or_init(|| SyntaxSet::load_defaults_newlines())
+    SS.get_or_init(SyntaxSet::load_defaults_newlines)
 }
 
 fn get_theme_set() -> &'static ThemeSet {
     static TS: OnceLock<ThemeSet> = OnceLock::new();
-    TS.get_or_init(|| ThemeSet::load_defaults())
+    TS.get_or_init(ThemeSet::load_defaults)
 }
 
 fn parse_frontmatter(content: &str) -> Option<(Frontmatter, String)> {
     let content = content.trim();
-    if content.starts_with("+++") {
-        let remaining = &content[3..];
+    if let Some(remaining) = content.strip_prefix("+++") {
         let end = remaining.find("+++")?;
         let frontmatter_str = &remaining[..end];
         let markdown = remaining[end + 3..].trim();
@@ -66,7 +70,6 @@ fn slugify(text: &str) -> String {
         .chars()
         .map(|c| if c.is_alphanumeric() || c == ' ' { c } else { ' ' })
         .collect::<String>()
-        .trim()
         .split_whitespace()
         .collect::<Vec<&str>>()
         .join("-")
@@ -119,7 +122,7 @@ fn strip_html_tags(html: &str) -> String {
                     buf.clear();
                 }
                 buf.push(c);
-                if buf.ends_with("</script>") {
+                if buf.to_lowercase().ends_with("</script>") {
                     state = State::Normal;
                 }
             }
@@ -128,7 +131,7 @@ fn strip_html_tags(html: &str) -> String {
                     buf.clear();
                 }
                 buf.push(c);
-                if buf.ends_with("</style>") {
+                if buf.to_lowercase().ends_with("</style>") {
                     state = State::Normal;
                 }
             }
@@ -144,7 +147,8 @@ fn strip_html_tags(html: &str) -> String {
 
 pub fn extract_toc(html: &str) -> Vec<TocEntry> {
     let mut entries = Vec::new();
-    let re = Regex::new(r#"<h([2-4])\s+id="([^"]*)"[^>]*>"#).unwrap();
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(r#"<h([2-4])\s+id="([^"]*)"[^>]*>"#).unwrap());
     for cap in re.captures_iter(html) {
         let level: usize = cap[1].parse().unwrap_or(2);
         let id = cap[2].to_string();
@@ -191,25 +195,22 @@ pub fn render_markdown(content: &str) -> String {
 }
 
 fn add_heading_ids(html: &str) -> String {
-    let mut result = html.to_string();
-    for level in 1..=6 {
-        let pattern = format!(r#"<h{}([^>]*)>(.*?)</h{}>"#, level, level);
-        let re = Regex::new(&pattern).unwrap();
-        result = re.replace_all(&result, |caps: &regex::Captures| {
-            let attrs = &caps[1];
-            let text = &caps[2];
-            if attrs.contains("id=") {
-                caps[0].to_string()
-            } else if attrs.trim().is_empty() {
-                let id = slugify(text);
-                format!("<h{} id=\"{}\">{}</h{}>", level, id, text, level)
-            } else {
-                let id = slugify(text);
-                format!("<h{} id=\"{}\" {}>{}</h{}>", level, id, attrs.trim_start(), text, level)
-            }
-        }).to_string();
-    }
-    result
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(r#"<h([1-6])([^>]*)>(.*?)</h[1-6]>"#).unwrap());
+    re.replace_all(html, |caps: &regex::Captures| {
+        let level = &caps[1];
+        let attrs = &caps[2];
+        let text = &caps[3];
+        if attrs.contains("id=") {
+            caps[0].to_string()
+        } else if attrs.trim().is_empty() {
+            let id = slugify(text);
+            format!("<h{} id=\"{}\">{}</h{}>", level, id, text, level)
+        } else {
+            let id = slugify(text);
+            format!("<h{} id=\"{}\" {}>{}</h{}>", level, id, attrs.trim_start(), text, level)
+        }
+    }).to_string()
 }
 
 fn highlight_code_blocks(html: &str) -> String {
@@ -217,22 +218,16 @@ fn highlight_code_blocks(html: &str) -> String {
     let ts = get_theme_set();
     let theme = &ts.themes["InspiredGitHub"];
 
-    let re = Regex::new(r#"(?s)<pre><code class="language-([\w.#+\-]+)">(.*?)</code></pre>"#).unwrap();
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(
+        r#"(?s)<pre><code(?: class="language-([\w.#+\-]+)")?>(.*?)</code></pre>"#
+    ).unwrap());
 
-    let result = re.replace_all(html, |caps: &regex::Captures| {
-        let lang = caps.get(1).unwrap().as_str();
+    re.replace_all(html, |caps: &regex::Captures| {
+        let lang = caps.get(1).map(|m| m.as_str()).unwrap_or("");
         let code_escaped = caps.get(2).unwrap().as_str();
         let code = unescape_html(code_escaped.trim_end_matches('\n'));
-
         format_code_block(&code, lang, ss, theme)
-    }).to_string();
-
-    // Also handle plain <pre><code> blocks without language
-    let re_plain = Regex::new(r#"(?s)<pre><code>(.*?)</code></pre>"#).unwrap();
-    re_plain.replace_all(&result, |caps: &regex::Captures| {
-        let code_escaped = caps.get(1).unwrap().as_str();
-        let code = unescape_html(code_escaped.trim_end_matches('\n'));
-        format_code_block(&code, "", ss, theme)
     }).to_string()
 }
 
@@ -280,7 +275,7 @@ pub fn load_posts(dir: &str) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(false, |e| e == "md") {
+        if path.extension().is_some_and(|e| e == "md") {
             let content = fs::read_to_string(&path)?;
             match parse_frontmatter(&content) {
                 Some((frontmatter, markdown)) => {
@@ -293,13 +288,18 @@ pub fn load_posts(dir: &str) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
                     let excerpt = frontmatter.excerpt.clone().unwrap_or_else(|| {
                         let text = strip_html_tags(&content_html);
                         let truncated: String = text.chars().take(160).collect();
-                        if text.len() > 160 { format!("{}...", truncated) } else { truncated }
+                        if text.chars().count() > 160 { format!("{}...", truncated) } else { truncated }
                     });
 
                     let toc = extract_toc(&content_html);
                     let wc = word_count(&content_html);
                     let rt = reading_time(&content_html);
                     let search_text = strip_html_tags(&content_html).to_lowercase();
+
+                    if !is_valid_date(&frontmatter.date) {
+                        tracing::warn!("Skipping {}: invalid date format '{}' (expected YYYY-MM-DD)", path.display(), frontmatter.date);
+                        continue;
+                    }
 
                     posts.push(Post {
                         frontmatter, slug, content_html, excerpt,
@@ -661,5 +661,75 @@ mod tests {
         let stripped = strip_html_tags(&html).to_lowercase();
         assert!(stripped.contains("heading"));
         assert!(stripped.contains("print"));
+    }
+
+    #[test]
+    fn test_highlight_code_blocks_with_lang() {
+        let html = "<pre><code class=\"language-rust\">fn main() {}</code></pre>";
+        let result = highlight_code_blocks(html);
+        assert!(result.contains("code-block"), "should have code-block wrapper");
+        assert!(result.contains("data-lang=\"rust\""), "should preserve language attribute");
+        assert!(result.contains("<table"), "should include table markup");
+    }
+
+    #[test]
+    fn test_highlight_code_blocks_plain() {
+        let html = "<pre><code>plain text</code></pre>";
+        let result = highlight_code_blocks(html);
+        assert!(result.contains("code-block"), "should have code-block wrapper");
+        assert!(!result.contains("data-lang"), "should NOT have language attribute for plain blocks");
+        assert!(result.contains("<table"), "should include table markup");
+    }
+
+    #[test]
+    fn test_strip_html_tags_case_insensitive() {
+        assert_eq!(strip_html_tags("<BR>"), "");
+        assert_eq!(strip_html_tags("<Script>alert(1)</Script>"), "");
+        assert_eq!(strip_html_tags("<IMG SRC=\"x\">"), "");
+        assert_eq!(strip_html_tags("<P>Hello</P>"), "Hello");
+    }
+
+    #[test]
+    fn test_add_heading_ids_duplicates() {
+        let html = "<h2>Intro</h2><h2>Intro</h2>";
+        let result = add_heading_ids(html);
+        assert!(result.contains(r#"id="intro""#), "both occurrences should have id=intro: {}", result);
+        assert_eq!(result.matches(r#"id="intro""#).count(), 2, "both headings get same id");
+    }
+
+    #[test]
+    fn test_load_posts_empty_tags() {
+        let dir = std::env::temp_dir().join(format!("myblog_test_empty_tags_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let content = "+++\ntitle = \"No Tags\"\ndate = \"2024-05-20\"\ntags = []\n+++\n\nBody";
+        std::fs::write(dir.join("no-tags.md"), content).unwrap();
+        let posts = load_posts(dir.to_str().unwrap()).unwrap();
+        assert_eq!(posts.len(), 1);
+        assert!(posts[0].frontmatter.tags.is_empty(), "tags should be empty, got: {:?}", posts[0].frontmatter.tags);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_load_posts_short_body_excerpt() {
+        let dir = std::env::temp_dir().join(format!("myblog_test_short_excerpt_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let body = "Short body here"; // 15 chars, well under 160
+        let content = format!(
+            "+++\ntitle = \"Short\"\ndate = \"2024-05-20\"\ntags = []\n+++\n\n{}",
+            body
+        );
+        std::fs::write(dir.join("short.md"), content).unwrap();
+        let posts = load_posts(dir.to_str().unwrap()).unwrap();
+        assert_eq!(posts.len(), 1);
+        // Excerpt should not end with "..." since body is shorter than 160 chars
+        assert!(!posts[0].excerpt.ends_with("..."), "short body should not have ellipsis: '{}'", posts[0].excerpt);
+        assert_eq!(posts[0].excerpt, "Short body here");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

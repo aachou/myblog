@@ -1,5 +1,11 @@
 use std::path::PathBuf;
-use myblog::post;
+use std::sync::Arc;
+use myblog::{AppState, handlers, post};
+use axum::Router;
+use axum::http::HeaderValue;
+use axum::routing::get;
+use tower_http::compression::CompressionLayer;
+use tower_http::set_header::SetResponseHeaderLayer;
 
 fn setup_test_posts(suffix: &str) -> (Vec<post::Post>, PathBuf) {
     let dir = std::env::temp_dir().join(format!("myblog_int_{}_{}", suffix, std::process::id()));
@@ -199,6 +205,386 @@ fn test_load_posts_empty_dir() {
 
     let posts = post::load_posts(dir.to_str().unwrap()).unwrap();
     assert!(posts.is_empty());
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+fn setup_router(temp_dir: &std::path::Path) -> Router {
+    let mut tera = tera::Tera::new("templates/**/*.html").unwrap();
+    tera.autoescape_on(vec![]);
+
+    let posts = post::load_posts(temp_dir.to_str().unwrap()).unwrap();
+    let state = Arc::new(AppState {
+        tera: std::sync::RwLock::new(tera),
+        posts: std::sync::RwLock::new(Arc::new(posts)),
+    });
+
+    Router::new()
+        .route("/", get(handlers::index_handler))
+        .route("/post/:slug", get(handlers::post_handler))
+        .route("/tag/:name", get(handlers::tag_handler))
+        .route("/about", get(handlers::about_handler))
+        .route("/tags", get(handlers::tags_handler))
+        .route("/search", get(handlers::search_handler))
+        .route("/archive", get(handlers::archive_handler))
+        .route("/feed.xml", get(handlers::feed_handler))
+        .route("/sitemap.xml", get(handlers::sitemap_handler))
+        .fallback(handlers::not_found_handler)
+        .layer(SetResponseHeaderLayer::overriding(
+            axum::http::header::CACHE_CONTROL,
+            HeaderValue::from_static("no-cache"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            axum::http::header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(
+                "default-src 'self'; style-src 'unsafe-inline' 'self'; img-src 'self' data:; frame-ancestors 'none'",
+            ),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            axum::http::header::X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(CompressionLayer::new())
+        .with_state(state)
+}
+
+#[tokio::test]
+async fn test_index_handler_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_index_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Test\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("test.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_fallback_returns_404() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_fallback_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/nonexistent").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 404);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_missing_post_returns_404() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_post404_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/post/no-such-slug").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 404);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_feed_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_feed_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Feed Post\"\ndate = \"2024-06-15\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("feed.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/feed.xml").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+    assert!(response.headers().get("content-type").unwrap().to_str().unwrap().starts_with("application/rss+xml"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_search_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_search_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Searchable\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nSearchable content";
+    std::fs::write(dir.join("search-test.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/search?q=Searchable").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+#[tokio::test]
+async fn test_post_handler_valid_slug_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_post200_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Valid Post\"\ndate = \"2024-06-15\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("valid-post.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/post/valid-post").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_tag_handler_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_tag_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Tagged\"\ndate = \"2024-01-01\"\ntags = [\"mytag\"]\n+++\n\nContent";
+    std::fs::write(dir.join("tagged.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/tag/mytag").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_tag_handler_no_results_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_tagno_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Tagged\"\ndate = \"2024-01-01\"\ntags = [\"a\"]\n+++\n\nContent";
+    std::fs::write(dir.join("tagged.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/tag/nonexistent").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_about_handler_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_about_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/about").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_tags_handler_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_tags_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Tagged\"\ndate = \"2024-01-01\"\ntags = [\"demo\"]\n+++\n\nContent";
+    std::fs::write(dir.join("tagged.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/tags").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_archive_handler_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_archive_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Archive Post\"\ndate = \"2024-06-15\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("archive-post.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/archive").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_sitemap_handler_returns_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_sitemap_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Sitemap\"\ndate = \"2024-06-15\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("sitemap.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/sitemap.xml").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+    let content_type = response.headers().get("content-type").unwrap().to_str().unwrap().to_string();
+    assert!(content_type.starts_with("application/xml"), "expected application/xml, got: {}", content_type);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_search_without_query_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_searchnoq_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Searchable\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("search.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/search").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_search_empty_query_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_searchemp_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Searchable\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("search.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/search?q=").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_search_no_results_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_nores_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Real\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("real.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/search?q=zzzznonexistent").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_response_headers() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_headers_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let post = "+++\ntitle = \"Headers\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nContent";
+    std::fs::write(dir.join("headers.md"), post).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+
+    let csp = response.headers().get("content-security-policy")
+        .expect("CSP header should be present")
+        .to_str().unwrap();
+    assert!(csp.contains("default-src 'self'"), "CSP should contain default-src 'self': {}", csp);
+
+    let no_sniff = response.headers().get("x-content-type-options")
+        .expect("X-Content-Type-Options header should be present")
+        .to_str().unwrap();
+    assert_eq!(no_sniff, "nosniff");
+
+    let cache = response.headers().get("cache-control")
+        .expect("Cache-Control header should be present")
+        .to_str().unwrap();
+    assert_eq!(cache, "no-cache");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_feed_handler_empty_posts_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_feedempty_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/feed.xml").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
+    let content_type = response.headers().get("content-type").unwrap().to_str().unwrap().to_string();
+    assert!(content_type.starts_with("application/rss+xml"), "expected application/rss+xml, got: {}", content_type);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_index_pagination_page_2_200() {
+    let dir = std::env::temp_dir().join(format!("myblog_http_page2_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    // Create 3 posts to test pagination with posts_per_page=5 (default)
+    // With 3 posts and page=2, it should still return 200 with empty page
+    for i in 0..3u8 {
+        let content = format!(
+            "+++\ntitle = \"Post {}\"\ndate = \"2024-06-{:02}\"\ntags = []\n+++\n\nContent",
+            15 - i, 15 - i
+        );
+        std::fs::write(dir.join(format!("post-{}.md", i)), content).unwrap();
+    }
+
+    let mut app = setup_router(&dir);
+    let response = tower::Service::call(
+        &mut app,
+        axum::http::Request::builder().uri("/?page=2").body(axum::body::Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
 }

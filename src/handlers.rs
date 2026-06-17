@@ -1,13 +1,13 @@
-#![allow(dead_code)]
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 
 use crate::post::escape_xml;
-use crate::{get_cached_posts, AppState, POSTS_PER_PAGE, SITE_DESC, SITE_TITLE, SITE_URL};
+use crate::{get_cached_posts, posts_per_page, site_desc, site_title, site_url, AppState};
 
 #[derive(Deserialize)]
 pub struct PageQuery {
@@ -57,7 +57,7 @@ fn compute_page_info(current: usize, total: usize) -> PageInfo {
 }
 
 fn render(state: &AppState, template: &str, ctx: &tera::Context) -> Html<String> {
-    Html(state.tera.render(template, ctx).unwrap_or_else(|e| {
+    Html(state.tera.read().unwrap_or_else(|e| e.into_inner()).render(template, ctx).unwrap_or_else(|e| {
         format!("<h1>Template error</h1><p>{}</p>", e)
     }))
 }
@@ -85,7 +85,7 @@ fn weekday(y: &str, m: &str, d: &str) -> &'static str {
     let (y, m) = if m < 3 { (y - 1, m + 12) } else { (y, m) };
     let c = y / 100;
     let y_ = y % 100;
-    let w = (d + (13 * (m + 1)) / 5 + y_ + y_ / 4 + c / 4 + 5 * c) % 7;
+    let w = (d + (13 * (m + 1)) / 5 + y_ + y_ / 4 + c / 4 + 5 * c).rem_euclid(7);
     ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"][w as usize]
 }
 
@@ -96,11 +96,11 @@ pub async fn index_handler(
     let posts = get_cached_posts(&state);
     let page = query.page.unwrap_or(1).max(1);
     let total_posts = posts.len();
-    let total_pages = if total_posts == 0 { 1 } else { (total_posts + POSTS_PER_PAGE - 1) / POSTS_PER_PAGE };
+    let total_pages = if total_posts == 0 { 1 } else { total_posts.div_ceil(posts_per_page()) };
     let page = page.min(total_pages);
 
-    let start = (page - 1) * POSTS_PER_PAGE;
-    let end = std::cmp::min(start + POSTS_PER_PAGE, total_posts);
+    let start = (page - 1) * posts_per_page();
+    let end = std::cmp::min(start + posts_per_page(), total_posts);
     let page_posts = &posts[start..end];
 
     let page_info = compute_page_info(page, total_pages);
@@ -108,9 +108,9 @@ pub async fn index_handler(
     let mut ctx = tera::Context::new();
     ctx.insert("posts", &page_posts);
     ctx.insert("page_info", &page_info);
-    ctx.insert("og_title", SITE_TITLE);
-    ctx.insert("og_description", SITE_DESC);
-    ctx.insert("og_url", SITE_URL);
+    ctx.insert("og_title", &site_title());
+    ctx.insert("og_description", &site_desc());
+    ctx.insert("og_url", &site_url());
     render(&state, "index.html", &ctx)
 }
 
@@ -119,8 +119,7 @@ pub async fn post_handler(
     Path(slug): Path<String>,
 ) -> Response {
     let posts = get_cached_posts(&state);
-    if let Some(post) = posts.iter().find(|p| p.slug == slug) {
-        let idx = posts.iter().position(|p| p.slug == slug).unwrap();
+    if let Some((idx, post)) = posts.iter().enumerate().find(|(_, p)| p.slug == slug) {
         let prev = if idx + 1 < posts.len() { Some(&posts[idx + 1]) } else { None };
         let next = if idx > 0 { Some(&posts[idx - 1]) } else { None };
         let prev_slug = prev.map(|p| p.slug.as_str());
@@ -143,12 +142,12 @@ pub async fn post_handler(
         ctx.insert("next_title", &next_title);
         ctx.insert("og_title", &post.frontmatter.title);
         ctx.insert("og_description", &post.excerpt);
-        ctx.insert("og_url", &format!("{}/post/{}", SITE_URL, slug));
+        ctx.insert("og_url", &format!("{}/post/{}", site_url(), slug));
         render(&state, "post.html", &ctx).into_response()
     } else {
         let mut ctx = tera::Context::new();
         ctx.insert("slug", &escape_xml(&slug));
-        render(&state, "404.html", &ctx).into_response()
+        (StatusCode::NOT_FOUND, render(&state, "404.html", &ctx)).into_response()
     }
 }
 
@@ -164,24 +163,35 @@ pub async fn tag_handler(
         .filter(|p| p.frontmatter.tags.iter().any(|t| t == &name))
         .collect();
 
-    let total_posts = filtered.len();
-    let total_pages = if total_posts == 0 { 1 } else { (total_posts + POSTS_PER_PAGE - 1) / POSTS_PER_PAGE };
+    let total_filtered = filtered.len();
+    let total_pages = if total_filtered == 0 { 1 } else { total_filtered.div_ceil(posts_per_page()) };
     let page = page.min(total_pages);
 
-    let start = (page - 1) * POSTS_PER_PAGE;
-    let end = std::cmp::min(start + POSTS_PER_PAGE, total_posts);
+    let start = (page - 1) * posts_per_page();
+    let end = std::cmp::min(start + posts_per_page(), total_filtered);
     let page_posts = &filtered[start..end];
 
     let page_info = compute_page_info(page, total_pages);
 
+    let tag_display = escape_xml(&name);
+    let tag_url = url::form_urlencoded::byte_serialize(name.as_bytes()).collect::<String>();
+
     let mut ctx = tera::Context::new();
     ctx.insert("posts", &page_posts);
     ctx.insert("page_info", &page_info);
-    ctx.insert("tag", &escape_xml(&name));
-    ctx.insert("og_title", &format!("#{} - {}", escape_xml(&name), SITE_TITLE));
-    ctx.insert("og_description", &format!("Posts tagged with #{}", escape_xml(&name)));
-    ctx.insert("og_url", &format!("{}/tag/{}", SITE_URL, escape_xml(&name)));
+    ctx.insert("tag", &tag_display);
+    ctx.insert("tag_raw", &name);
+    ctx.insert("total_filtered", &total_filtered);
+    ctx.insert("og_title", &format!("#{} - {}", tag_display, site_title()));
+    ctx.insert("og_description", &format!("Posts tagged with #{}", tag_display));
+    ctx.insert("og_url", &format!("{}/tag/{}", site_url(), tag_url));
     render(&state, "tag.html", &ctx)
+}
+
+fn read_about_md(path: &str) -> String {
+    std::fs::read_to_string(path)
+        .map(|content| crate::post::render_markdown(&content))
+        .unwrap_or_else(|e| format!("<p>Failed to load about page: {}</p>", e))
 }
 
 pub async fn about_handler(State(state): State<Arc<AppState>>) -> Html<String> {
@@ -194,18 +204,16 @@ pub async fn about_handler(State(state): State<Arc<AppState>>) -> Html<String> {
 
     let total_words: usize = posts.iter().map(|p| p.word_count).sum();
 
-    let about_html = std::fs::read_to_string("pages/about.md")
-        .map(|content| crate::post::render_markdown(&content))
-        .unwrap_or_else(|e| format!("<p>Failed to load about page: {}</p>", e));
+    let about_html = read_about_md("pages/about.md");
 
     let mut ctx = tera::Context::new();
     ctx.insert("about_content", &about_html);
     ctx.insert("posts", &*posts);
     ctx.insert("tag_count", &tag_count);
     ctx.insert("word_count", &total_words);
-    ctx.insert("og_title", &format!("About - {}", SITE_TITLE));
-    ctx.insert("og_description", SITE_DESC);
-    ctx.insert("og_url", &format!("{}/about", SITE_URL));
+    ctx.insert("og_title", &format!("About - {}", site_title()));
+    ctx.insert("og_description", &site_desc());
+    ctx.insert("og_url", &format!("{}/about", site_url()));
     render(&state, "about.html", &ctx)
 }
 
@@ -230,9 +238,9 @@ pub async fn tags_handler(State(state): State<Arc<AppState>>) -> Html<String> {
     let mut ctx = tera::Context::new();
     ctx.insert("tag_cloud", &tag_cloud);
     ctx.insert("total_tags", &tag_cloud.len());
-    ctx.insert("og_title", &format!("Tags - {}", SITE_TITLE));
+    ctx.insert("og_title", &format!("Tags - {}", site_title()));
     ctx.insert("og_description", "Browse all tags");
-    ctx.insert("og_url", &format!("{}/tags", SITE_URL));
+    ctx.insert("og_url", &format!("{}/tags", site_url()));
     render(&state, "tags.html", &ctx)
 }
 
@@ -257,21 +265,25 @@ pub async fn search_handler(
 
     let page = query.page.unwrap_or(1).max(1);
     let total_posts = all_results.len();
-    let total_pages = if total_posts == 0 { 1 } else { (total_posts + POSTS_PER_PAGE - 1) / POSTS_PER_PAGE };
+    let total_pages = if total_posts == 0 { 1 } else { total_posts.div_ceil(posts_per_page()) };
     let page = page.min(total_pages);
-    let start = (page - 1) * POSTS_PER_PAGE;
-    let end = std::cmp::min(start + POSTS_PER_PAGE, total_posts);
+    let start = (page - 1) * posts_per_page();
+    let end = std::cmp::min(start + posts_per_page(), total_posts);
     let results = &all_results[start..end];
     let page_info = compute_page_info(page, total_pages);
 
+    let query_display = escape_xml(&q);
+    let query_url = url::form_urlencoded::byte_serialize(q.as_bytes()).collect::<String>();
+
     let mut ctx = tera::Context::new();
-    ctx.insert("query", &escape_xml(&q));
+    ctx.insert("query", &query_display);
+    ctx.insert("query_url", &query_url);
     ctx.insert("results", &results);
     ctx.insert("result_count", &total_posts);
     ctx.insert("page_info", &page_info);
-    ctx.insert("og_title", &format!("Search - {}", SITE_TITLE));
-    ctx.insert("og_description", &format!("Search results for \"{}\"", escape_xml(&q)));
-    ctx.insert("og_url", &format!("{}/search?q={}", SITE_URL, escape_xml(&q)));
+    ctx.insert("og_title", &format!("Search - {}", site_title()));
+    ctx.insert("og_description", &format!("Search results for \"{}\"", query_display));
+    ctx.insert("og_url", &format!("{}/search?q={}", site_url(), query_url));
     render(&state, "search.html", &ctx)
 }
 
@@ -302,14 +314,18 @@ struct ArchiveMonth {
     posts: Vec<ArchivePost>,
 }
 
-pub async fn archive_handler(
-    State(state): State<Arc<AppState>>,
-    Query(query): Query<PageQuery>,
-) -> Html<String> {
-    let posts = get_cached_posts(&state);
+fn month_index(name: &str) -> u8 {
+    match name {
+        "January" => 1, "February" => 2, "March" => 3, "April" => 4,
+        "May" => 5, "June" => 6, "July" => 7, "August" => 8,
+        "September" => 9, "October" => 10, "November" => 11, "December" => 12,
+        _ => 0,
+    }
+}
 
+fn group_by_year_month(posts: &[crate::post::Post]) -> Vec<ArchiveGroup> {
     let mut groups: Vec<ArchiveGroup> = Vec::new();
-    'outer: for post in &*posts {
+    for post in posts {
         let parts: Vec<&str> = post.frontmatter.date.split('-').collect();
         if parts.len() < 2 { continue; }
         let year = parts[0].to_string();
@@ -329,23 +345,35 @@ pub async fn archive_handler(
             reading_time: post.reading_time,
         };
 
-        for g in &mut groups {
-            if g.year == year {
-                if let Some(last) = g.months.last_mut() {
-                    if last.month == month_name {
-                        last.posts.push(ap);
-                        continue 'outer;
-                    }
-                }
+        let year_idx = groups.iter().position(|g| g.year == year);
+        if let Some(idx) = year_idx {
+            let g = &mut groups[idx];
+            if let Some(existing) = g.months.iter_mut().find(|m| m.month == month_name) {
+                existing.posts.push(ap);
+            } else {
                 g.months.push(ArchiveMonth { month: month_name, posts: vec![ap] });
-                continue 'outer;
             }
+        } else {
+            groups.push(ArchiveGroup {
+                year,
+                months: vec![ArchiveMonth { month: month_name, posts: vec![ap] }],
+            });
         }
-        groups.push(ArchiveGroup {
-            year,
-            months: vec![ArchiveMonth { month: month_name, posts: vec![ap] }],
-        });
     }
+
+    for g in &mut groups {
+        g.months.sort_by_key(|b| std::cmp::Reverse(month_index(&b.month)));
+    }
+    groups
+}
+
+pub async fn archive_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<PageQuery>,
+) -> Html<String> {
+    let posts = get_cached_posts(&state);
+
+    let groups = group_by_year_month(&posts);
 
     let total = groups.len();
     let page = query.page.unwrap_or(1).max(1).min(total.max(1));
@@ -367,9 +395,9 @@ pub async fn archive_handler(
     ctx.insert("prev_year", &prev_year);
     ctx.insert("next_year", &next_year);
     ctx.insert("total_posts", &posts.len());
-    ctx.insert("og_title", &format!("Archive - {}", SITE_TITLE));
+    ctx.insert("og_title", &format!("Archive - {}", site_title()));
     ctx.insert("og_description", "Browse all posts by date");
-    ctx.insert("og_url", &format!("{}/archive", SITE_URL));
+    ctx.insert("og_url", &format!("{}/archive", site_url()));
     render(&state, "archive.html", &ctx)
 }
 
@@ -378,9 +406,9 @@ pub async fn feed_handler(State(state): State<Arc<AppState>>) -> Response {
 
     let mut items = String::new();
     for post in &*posts {
-        let url = format!("{}/post/{}", SITE_URL, post.slug);
+        let url = format!("{}/post/{}", site_url(), post.slug);
         let date = date_to_rfc2822(&post.frontmatter.date);
-        let excerpt = crate::post::escape_xml(&post.excerpt);
+        let content = format!("<![CDATA[{}]]>", post.content_html);
         let title = crate::post::escape_xml(&post.frontmatter.title);
         items.push_str(&format!(
             r#"  <item>
@@ -390,7 +418,7 @@ pub async fn feed_handler(State(state): State<Arc<AppState>>) -> Response {
     <pubDate>{}</pubDate>
     <description>{}</description>
   </item>
-"#, title, url, url, date, excerpt));
+"#, title, url, url, date, content));
     }
 
     let body = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -405,43 +433,76 @@ pub async fn feed_handler(State(state): State<Arc<AppState>>) -> Response {
 {}
   </channel>
 </rss>"#,
-        SITE_TITLE, SITE_URL, SITE_DESC, SITE_URL,
-        date_to_rfc2822(&posts.first().map(|p| &p.frontmatter.date).unwrap_or(&String::new())),
+        site_title(), site_url(), site_desc(), site_url(),
+        date_to_rfc2822(posts.first().map(|p| &p.frontmatter.date).unwrap_or(&String::new())),
         items);
 
     Response::builder()
         .header("Content-Type", "application/rss+xml; charset=utf-8")
         .body(axum::body::Body::from(body))
-        .unwrap()
+        .expect("feed response builder should succeed")
 }
 
-pub async fn sitemap_handler(State(state): State<Arc<AppState>>) -> Response {
+fn popular_tags(posts: &[crate::post::Post]) -> Vec<&str> {
+    let mut tag_freq: HashMap<&str, usize> = HashMap::new();
+    for p in posts {
+        for t in &p.frontmatter.tags {
+            *tag_freq.entry(t).or_insert(0) += 1;
+        }
+    }
+    let mut pop_tags: Vec<(&str, usize)> = tag_freq.into_iter().collect();
+    pop_tags.sort_by_key(|b| std::cmp::Reverse(b.1));
+    pop_tags.into_iter().take(10).map(|(t, _)| t).collect()
+}
+
+pub async fn not_found_handler(
+    State(state): State<Arc<AppState>>,
+    uri: axum::http::Uri,
+) -> Response {
     let posts = get_cached_posts(&state);
 
+    let recent_posts: Vec<&crate::post::Post> = posts.iter().take(5).collect();
+
+    let pop_tags = popular_tags(&posts);
+
+    let mut ctx = tera::Context::new();
+    ctx.insert("requested_path", &escape_xml(uri.path()));
+    ctx.insert("recent_posts", &recent_posts);
+    ctx.insert("pop_tags", &pop_tags);
+    (StatusCode::NOT_FOUND, render(&state, "404.html", &ctx)).into_response()
+}
+
+fn generate_sitemap_urls(posts: &[crate::post::Post]) -> String {
     let mut urls = format!(
         r#"  <url>
-    <loc>{}/</loc>
+    <loc>{0}/</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>{}/about</loc>
+    <loc>{0}/about</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>{}/archive</loc>
+    <loc>{0}/archive</loc>
     <priority>0.7</priority>
   </url>
-"#, SITE_URL, SITE_URL, SITE_URL);
+"#, site_url());
 
-    for post in &*posts {
+    for post in posts {
         urls.push_str(&format!(
             r#"  <url>
     <loc>{}/post/{}</loc>
     <lastmod>{}T00:00:00Z</lastmod>
     <priority>0.9</priority>
   </url>
-"#, SITE_URL, post.slug, post.frontmatter.date));
+"#, site_url(), post.slug, post.frontmatter.date));
     }
+    urls
+}
+
+pub async fn sitemap_handler(State(state): State<Arc<AppState>>) -> Response {
+    let posts = get_cached_posts(&state);
+    let urls = generate_sitemap_urls(&posts);
 
     let body = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -451,7 +512,7 @@ pub async fn sitemap_handler(State(state): State<Arc<AppState>>) -> Response {
     Response::builder()
         .header("Content-Type", "application/xml; charset=utf-8")
         .body(axum::body::Body::from(body))
-        .unwrap()
+        .expect("sitemap response builder should succeed")
 }
 
 #[cfg(test)]
@@ -598,5 +659,123 @@ mod tests {
             .copied()
             .collect();
         assert_eq!(matches, vec!["rust"]);
+    }
+
+    #[test]
+    fn test_generate_sitemap_urls_with_posts() {
+        let posts = vec![
+            crate::post::Post {
+                frontmatter: crate::post::Frontmatter {
+                    title: "P1".into(), date: "2024-06-15".into(),
+                    tags: vec!["a".into()], excerpt: None,
+                },
+                slug: "p1".into(), content_html: "<p>P1</p>".into(),
+                excerpt: "P1".into(), reading_time: 1, toc: vec![], word_count: 1, search_text: "p1".into(),
+            },
+        ];
+        let urls = generate_sitemap_urls(&posts);
+        assert!(urls.contains("/post/p1"), "should contain post slug: {}", urls);
+        assert!(urls.contains("2024-06-15"), "should contain post date");
+        assert!(urls.contains("/about"), "should contain about page");
+        assert!(urls.contains("/archive"), "should contain archive page");
+        assert!(urls.contains("</url>"), "should have closing url tags");
+        assert!(urls.contains("priority>1.0<"), "should have homepage priority");
+    }
+
+    #[test]
+    fn test_generate_sitemap_urls_empty() {
+        let posts: Vec<crate::post::Post> = vec![];
+        let urls = generate_sitemap_urls(&posts);
+        assert!(urls.contains("/about"), "static pages always present");
+        assert!(urls.contains("/archive"), "static pages always present");
+        assert!(!urls.contains("/post/"), "no post entries");
+    }
+
+    #[test]
+    fn test_group_by_year_month_basic() {
+        let posts = vec![
+            crate::post::Post {
+                frontmatter: crate::post::Frontmatter {
+                    title: "P1".into(), date: "2024-06-15".into(),
+                    tags: vec![], excerpt: None,
+                },
+                slug: "p1".into(), content_html: "".into(),
+                excerpt: "".into(), reading_time: 1, toc: vec![], word_count: 1, search_text: "".into(),
+            },
+            crate::post::Post {
+                frontmatter: crate::post::Frontmatter {
+                    title: "P2".into(), date: "2024-03-10".into(),
+                    tags: vec![], excerpt: None,
+                },
+                slug: "p2".into(), content_html: "".into(),
+                excerpt: "".into(), reading_time: 1, toc: vec![], word_count: 1, search_text: "".into(),
+            },
+            crate::post::Post {
+                frontmatter: crate::post::Frontmatter {
+                    title: "P3".into(), date: "2023-12-01".into(),
+                    tags: vec![], excerpt: None,
+                },
+                slug: "p3".into(), content_html: "".into(),
+                excerpt: "".into(), reading_time: 1, toc: vec![], word_count: 1, search_text: "".into(),
+            },
+        ];
+        let groups = group_by_year_month(&posts);
+        assert_eq!(groups.len(), 2, "two distinct years");
+        assert_eq!(groups[0].year, "2024");
+        assert_eq!(groups[0].months.len(), 2, "two months in 2024");
+        assert_eq!(groups[0].months[0].month, "June", "months sorted descending");
+        assert_eq!(groups[0].months[1].month, "March");
+        assert_eq!(groups[1].year, "2023");
+        assert_eq!(groups[1].months.len(), 1);
+        assert_eq!(groups[1].months[0].month, "December");
+    }
+
+    #[test]
+    fn test_group_by_year_month_empty() {
+        let posts: Vec<crate::post::Post> = vec![];
+        let groups = group_by_year_month(&posts);
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_popular_tags_top_10() {
+        let posts: Vec<crate::post::Post> = (0..15).map(|i| {
+            let tag = format!("tag-{}", i);
+            crate::post::Post {
+                frontmatter: crate::post::Frontmatter {
+                    title: format!("P{}", i), date: "2024-06-15".into(),
+                    tags: vec![tag],
+                    excerpt: None,
+                },
+                slug: format!("p{}", i), content_html: "".into(),
+                excerpt: "".into(), reading_time: 1, toc: vec![], word_count: 1,
+                search_text: "".into(),
+            }
+        }).collect();
+        let tags = popular_tags(&posts);
+        assert_eq!(tags.len(), 10, "at most 10 popular tags returned, got {}", tags.len());
+    }
+
+    #[test]
+    fn test_popular_tags_less_than_10() {
+        let posts = vec![
+            crate::post::Post {
+                frontmatter: crate::post::Frontmatter {
+                    title: "P1".into(), date: "2024-06-15".into(),
+                    tags: vec!["rust".into()], excerpt: None,
+                },
+                slug: "p1".into(), content_html: "".into(),
+                excerpt: "".into(), reading_time: 1, toc: vec![], word_count: 1, search_text: "".into(),
+            },
+        ];
+        let tags = popular_tags(&posts);
+        assert_eq!(tags, vec!["rust"]);
+    }
+
+    #[test]
+    fn test_read_about_md_missing_file() {
+        let result = read_about_md("/nonexistent/path/about.md");
+        assert!(result.starts_with("<p>Failed to load about page:"), "got: {}", result);
+        assert!(result.ends_with("</p>"));
     }
 }

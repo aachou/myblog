@@ -40,6 +40,23 @@
   }
 }
 
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 8px;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  z-index: 1000;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
 html { scroll-behavior: smooth; }
 body {
   font-family: var(--font);
@@ -164,12 +181,21 @@ footer a:hover { color: var(--primary); }
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+.tag-heading {
+  font-size: 1.8rem;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, var(--text), var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 .hero p {
   color: var(--text-secondary);
   font-size: 1.15rem;
   max-width: 520px;
   margin: 0 auto;
 }
+.hero-link { margin-top: 24px; }
 
 .posts { display: flex; flex-direction: column; gap: 20px; }
 
@@ -243,6 +269,11 @@ a.tag:hover {
   -webkit-text-fill-color: var(--tag-text);
   background-clip: unset;
 }
+.empty-state { text-align: center; padding: 40px; }
+.empty-state p { color: var(--text-secondary); }
+.empty-state a { margin-top: 12px; display: inline-block; }
+.empty-state .back-home { margin-top: 12px; display: inline-block; }
+
 .active-tag {
   background: var(--primary) !important;
   color: #fff !important;
@@ -832,3 +863,4 @@ a.tag:hover {
 @media (prefers-color-scheme: dark) {
   ::selection { background: #6366f1; }
 }
+.pop-tags-section { margin-top: 32px; }

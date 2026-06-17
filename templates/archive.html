@@ -27,7 +27,7 @@
   </div>
 </section>
 
-<nav class="archive-nav">
+<nav class="archive-nav" aria-label="Archive navigation">
   {% if has_prev %}
   <a href="/archive?page={{ prev_page }}" class="archive-nav-link">&larr; {{ prev_year }}</a>
   {% else %}
@@ -42,8 +42,8 @@
 </nav>
 {% else %}
 <section class="posts">
-  <article class="post-card" style="text-align: center; padding: 40px;">
-    <p style="color: var(--text-secondary);">No posts yet. Check back soon!</p>
+  <article class="post-card empty-state">
+    <p>No posts yet. Check back soon!</p>
   </article>
 </section>
 {% endif %}

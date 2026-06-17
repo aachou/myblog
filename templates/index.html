@@ -14,7 +14,7 @@
       <span class="reading-time">{{ post.reading_time }} min read</span>
       <div class="tags">
         {% for tag in post.frontmatter.tags %}
-        <a href="/tag/{{ tag }}" class="tag">{{ tag }}</a>
+        <a href="/tag/{{ tag | urlencode }}" class="tag">{{ tag | escape_xml }}</a>
         {% endfor %}
       </div>
     </div>
@@ -23,8 +23,8 @@
   </article>
   {% endfor %}
   {% if posts | length == 0 %}
-  <article class="post-card" style="text-align: center; padding: 40px;">
-    <p style="color: var(--text-secondary);">No posts yet. Check back soon!</p>
+  <article class="post-card empty-state">
+    <p>No posts yet. Check back soon!</p>
   </article>
   {% endif %}
 </section>
