@@ -2,6 +2,8 @@
 
 Personal blog built with **Rust + Axum 0.7**. Flat-file, no database. Markdown posts with TOML frontmatter.
 
+![README](./README.png)
+
 ## Features
 
 - Markdown rendering with syntax highlighting (syntect, with alias mapping for common language names)
