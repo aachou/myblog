@@ -217,6 +217,7 @@ fn setup_router(temp_dir: &std::path::Path) -> Router {
     let state = Arc::new(AppState {
         tera: std::sync::RwLock::new(tera),
         posts: std::sync::RwLock::new(Arc::new(posts)),
+        about_config: std::sync::RwLock::new(myblog::read_about_config()),
     });
 
     Router::new()
@@ -427,6 +428,12 @@ async fn test_about_handler_returns_200() {
         axum::http::Request::builder().uri("/about").body(axum::body::Body::empty()).unwrap()
     ).await.unwrap();
     assert_eq!(response.status(), 200);
+
+    let body = http_body_util::BodyExt::collect(response.into_body()).await.unwrap().to_bytes();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+    assert!(html.contains("阿愁"), "About page should contain author name");
+    assert!(html.contains("?v="), "About page should contain avatar path with cache buster");
+    assert!(html.contains("avatar"), "About page should reference avatar image");
 
     let _ = std::fs::remove_dir_all(&dir);
 }

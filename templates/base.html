@@ -10,6 +10,7 @@
 <meta property="og:url" content="{{ og_url | default(value='http://127.0.0.1:3000') }}">
 <link rel="alternate" type="application/rss+xml" title="MyBlog" href="/feed.xml">
 <link rel="stylesheet" href="/static/style.css">
+{% block extra_head %}{% endblock %}
 <script src="/static/script.js" defer></script>
 </head>
 <body>

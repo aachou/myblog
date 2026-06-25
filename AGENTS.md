@@ -63,7 +63,9 @@ Sorted newest-first by date. Slug = filename stem.
 ## Deployment
 
 - **Dockerfile**: multi-stage (`rust:slim-bookworm` build → `debian:bookworm-slim` runtime). Copies `templates/`, `static/`, `pages/`, `posts/` into runtime.
-- **Config env vars**: `SITE_URL` (default `http://127.0.0.1:3000`), `SITE_TITLE`, `SITE_DESC`, `POSTS_PER_PAGE` (default `5`), `PORT` (default `3000`).
+- **Site config** (`config/site.json`): `title`, `description`, `url`, `posts_per_page`. `PORT` via env var (default `3000`).
+- **About config** (`config/about.json`): stores `author_name` (默认 "阿愁") and `avatar_path` (默认 `/static/images/avatar.jpg`). Editable inline on `/about`.
+- **API endpoints**: `POST /api/about` (JSON update author_name/avatar_path), `POST /api/upload-avatar` (multipart file upload, max 5MB, JPG/PNG/WebP).
 - `notify` watcher works in dev; on Railway the app restarts on each deploy.
 
 ## Release
@@ -72,10 +74,8 @@ Sorted newest-first by date. Slug = filename stem.
 # Bump version in Cargo.toml, then:
 git tag v0.x.x
 git push origin v0.x.x
-gh release create v0.x.x --title "v0.x.x - Short Description" --notes "<description>
-
-### Category
-- Item
-- Item"
+gh release create v0.x.x --title "v0.x.x - Short Description" --notes-file /tmp/release-notes.md
 ```
+
+**Note**: Use `--notes-file` with a temp file, not `--notes`. The latter causes escaping issues with `"` and `\` in PowerShell.
 

@@ -7,7 +7,7 @@ use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tracing_subscriber::EnvFilter;
 use axum::http::HeaderValue;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 
 use myblog::{AppState, handlers, post};
@@ -29,6 +29,7 @@ async fn main() {
     let state = Arc::new(AppState {
         tera: RwLock::new(tera),
         posts: RwLock::new(Arc::new(Vec::new())),
+        about_config: RwLock::new(myblog::read_about_config()),
     });
 
     match post::load_posts("posts") {
@@ -112,6 +113,8 @@ async fn main() {
         .route("/archive", get(handlers::archive_handler))
         .route("/feed.xml", get(handlers::feed_handler))
         .route("/sitemap.xml", get(handlers::sitemap_handler))
+        .route("/api/about", post(handlers::update_about_handler))
+        .route("/api/upload-avatar", post(handlers::upload_avatar_handler))
         .fallback(handlers::not_found_handler)
         .layer(SetResponseHeaderLayer::overriding(
             axum::http::header::CACHE_CONTROL,

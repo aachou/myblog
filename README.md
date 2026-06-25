@@ -12,7 +12,7 @@ Personal blog built with **Rust + Axum 0.7**. Flat-file, no database. Markdown p
 - Related posts, pagination, reading time
 - CSP headers, XSS protection, accessibility (skip-link, aria-labels)
 - Comments via [utterances](https://utteranc.es) (GitHub Issues-based, client-side)
-- 118 tests (85 unit + 33 integration), zero clippy warnings
+- 120 tests (87 unit + 33 integration), zero clippy warnings
 
 ## Quick Start
 
@@ -38,14 +38,40 @@ excerpt = "Optional excerpt"
 
 Slug is derived from the filename (`my-post`). No database, no admin panel — just push `.md` files.
 
-## Environment Variables
+## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SITE_URL` | `http://127.0.0.1:3000` | Public URL of the blog |
-| `SITE_TITLE` | `MyBlog` | Site title |
-| `SITE_DESC` | `A personal blog built with Rust and Axum` | Site description |
-| `POSTS_PER_PAGE` | `5` | Posts per page |
+### Site Config (`config/site.json`)
+
+```json
+{
+  "title": "MyBlog",
+  "description": "A personal blog built with Rust and Axum",
+  "url": "http://127.0.0.1:3000",
+  "posts_per_page": 5
+}
+```
+
+Can be overridden by environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `SITE_TITLE` | Overrides `title` in config |
+| `SITE_DESC` | Overrides `description` in config |
+| `SITE_URL` | Overrides `url` in config |
+| `POSTS_PER_PAGE` | Overrides `posts_per_page` in config |
+
+Priority: **env var > config file > code default**.
+
+### About Config (`config/about.json`)
+
+```json
+{
+  "author_name": "阿愁",
+  "avatar_path": "/static/images/avatar.jpg"
+}
+```
+
+Editable inline on `/about` page — click the name to edit, click the avatar to upload a new one (with cropping).
 
 ## Deployment
 

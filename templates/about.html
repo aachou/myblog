@@ -1,7 +1,27 @@
 {% extends "base.html" %}
 {% block title %}About - MyBlog{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="/static/cropper.min.css">
+<script src="/static/cropper.min.js" defer></script>
+{% endblock %}
 {% block content %}
 <article class="about-content">
+  <div class="about-avatar">
+    <img src="{{ avatar_path }}" alt="Avatar" class="avatar-img" id="about-avatar">
+    <h1 class="avatar-name" id="about-name">{{ author_name }}</h1>
+  </div>
+  <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+
+  <div id="crop-modal" class="crop-modal" style="display:none">
+    <div class="crop-modal-content">
+      <div id="crop-container"></div>
+      <div class="crop-modal-actions">
+        <button id="crop-confirm" class="crop-btn crop-btn-primary">确认</button>
+        <button id="crop-cancel" class="crop-btn">取消</button>
+      </div>
+    </div>
+  </div>
+
   <div class="post-content">
     {{ about_content | safe }}
   </div>

@@ -1,0 +1,6 @@
+{
+  "title": "MyBlog",
+  "description": "A personal blog built with Rust and Axum",
+  "url": "https://myblog-achou.up.railway.app",
+  "posts_per_page": 5
+}

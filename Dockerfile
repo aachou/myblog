@@ -12,5 +12,6 @@ COPY templates ./templates
 COPY static ./static
 COPY pages ./pages
 COPY posts ./posts
+COPY config ./config
 EXPOSE 3000
 CMD ["./myblog"]

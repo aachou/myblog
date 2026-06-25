@@ -1,13 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
+use axum::Json;
 use serde::{Deserialize, Serialize};
 
 use crate::post::escape_xml;
-use crate::{get_cached_posts, posts_per_page, site_desc, site_title, site_url, AppState};
+use crate::{get_cached_posts, posts_per_page, save_about_config, site_desc, site_title, site_url, AppState};
 
 #[derive(Deserialize)]
 pub struct PageQuery {
@@ -206,11 +207,31 @@ pub async fn about_handler(State(state): State<Arc<AppState>>) -> Html<String> {
 
     let about_html = read_about_md("pages/about.md");
 
+    let config = state.about_config.read().unwrap_or_else(|e| e.into_inner());
+    let author_name = config.author_name.clone();
+    let raw_path = config.avatar_path.clone();
+    drop(config);
+
+    let avatar_path = if raw_path.starts_with("/static/") {
+        let file_path = format!(".{}", raw_path);
+        let mtime = std::fs::metadata(&file_path)
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        format!("{}?v={}", raw_path, mtime)
+    } else {
+        raw_path.clone()
+    };
+
     let mut ctx = tera::Context::new();
     ctx.insert("about_content", &about_html);
     ctx.insert("posts", &*posts);
     ctx.insert("tag_count", &tag_count);
     ctx.insert("word_count", &total_words);
+    ctx.insert("author_name", &author_name);
+    ctx.insert("avatar_path", &avatar_path);
     ctx.insert("og_title", &format!("About - {}", site_title()));
     ctx.insert("og_description", &site_desc());
     ctx.insert("og_url", &format!("{}/about", site_url()));
@@ -516,6 +537,85 @@ pub async fn sitemap_handler(State(state): State<Arc<AppState>>) -> Response {
         .header("Content-Type", "application/xml; charset=utf-8")
         .body(axum::body::Body::from(body))
         .expect("sitemap response builder should succeed")
+}
+
+#[derive(Deserialize)]
+pub struct UpdateAboutPayload {
+    pub author_name: Option<String>,
+    pub avatar_path: Option<String>,
+}
+
+pub async fn update_about_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<UpdateAboutPayload>,
+) -> Response {
+    let mut config = state.about_config.write().unwrap_or_else(|e| e.into_inner());
+    if let Some(name) = payload.author_name {
+        if !name.is_empty() {
+            config.author_name = name;
+        }
+    }
+    if let Some(path) = payload.avatar_path {
+        if !path.is_empty() {
+            config.avatar_path = path;
+        }
+    }
+    let config_clone = config.clone();
+    drop(config);
+    save_about_config(&config_clone);
+    Json(serde_json::json!({"ok": true})).into_response()
+}
+
+pub async fn upload_avatar_handler(
+    State(state): State<Arc<AppState>>,
+    mut multipart: Multipart,
+) -> Response {
+    use std::io::Write;
+
+    let field = match multipart.next_field().await {
+        Ok(Some(f)) => f,
+        _ => return (StatusCode::BAD_REQUEST, "No file uploaded").into_response(),
+    };
+
+    let content_type = field.content_type().unwrap_or("").to_string();
+    let allowed = ["image/jpeg", "image/png", "image/webp"];
+    if !allowed.contains(&content_type.as_str()) {
+        return (StatusCode::BAD_REQUEST, "Only JPG, PNG, WebP allowed").into_response();
+    }
+
+    let ext = match content_type.as_str() {
+        "image/png" => "png",
+        "image/webp" => "webp",
+        _ => "jpg",
+    };
+
+    let data = match field.bytes().await {
+        Ok(d) => d,
+        _ => return (StatusCode::BAD_REQUEST, "Failed to read file").into_response(),
+    };
+
+    if data.len() > 5 * 1024 * 1024 {
+        return (StatusCode::BAD_REQUEST, "File too large (max 5MB)").into_response();
+    }
+
+    let filepath = format!("static/images/avatar.{}", ext);
+    match std::fs::File::create(&filepath) {
+        Ok(mut f) => {
+            if f.write_all(&data).is_err() {
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to save file").into_response();
+            }
+        }
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create file").into_response(),
+    }
+
+    let avatar_path = format!("/static/images/avatar.{}", ext);
+    let mut config = state.about_config.write().unwrap_or_else(|e| e.into_inner());
+    config.avatar_path = avatar_path.clone();
+    let config_clone = config.clone();
+    drop(config);
+    save_about_config(&config_clone);
+
+    Json(serde_json::json!({"avatar_path": avatar_path})).into_response()
 }
 
 #[cfg(test)]
