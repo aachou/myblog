@@ -145,6 +145,17 @@ fn strip_html_tags(html: &str) -> String {
     result.trim().to_string()
 }
 
+fn trim_excerpt_source(md: &str) -> &str {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(r"(?m)^#{1,6}\s+.*$").unwrap());
+    if let Some(m) = re.find(md) {
+        let after = &md[m.end()..];
+        after.trim_start()
+    } else {
+        md.trim_start()
+    }
+}
+
 pub fn extract_toc(html: &str) -> Vec<TocEntry> {
     let mut entries = Vec::new();
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -303,7 +314,9 @@ pub fn load_posts(dir: &str) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
                     let content_html = render_markdown(&markdown);
 
                     let excerpt = frontmatter.excerpt.clone().unwrap_or_else(|| {
-                        let text = strip_html_tags(&content_html);
+                        let source = trim_excerpt_source(&markdown);
+                        let html = render_markdown(source);
+                        let text = strip_html_tags(&html);
                         let truncated: String = text.chars().take(160).collect();
                         if text.chars().count() > 160 { format!("{}...", truncated) } else { truncated }
                     });
