@@ -311,7 +311,7 @@ pub fn load_posts(dir: &str) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
                     let toc = extract_toc(&content_html);
                     let wc = word_count(&content_html);
                     let rt = reading_time(&content_html);
-                    let search_text = strip_html_tags(&content_html).to_lowercase();
+                    let search_text = format!("{} {}", strip_html_tags(&excerpt), strip_html_tags(&content_html)).to_lowercase();
 
                     if !is_valid_date(&frontmatter.date) {
                         tracing::warn!("Skipping {}: invalid date format '{}' (expected YYYY-MM-DD)", path.display(), frontmatter.date);

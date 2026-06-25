@@ -95,7 +95,7 @@ FLAG.store(1);        ||       assert_eq!(DATA, 42);
 
 这种重排序导致的意外行为称为 **relaxed behaviors**，无法在线程交错语义中观察到。
 
-### 解决方案：禁止重排序
+### No Reordering
 
 使用 **Release/Acquire** 可以防止重排序：
 
@@ -509,7 +509,7 @@ fn unlock(&self, token: Token) {
 
 **三种锁的共同点**：持有锁的时间戳区间不相交，通过 Release/Acquire 实现消息传递，保证持有锁时能访问到最新数据。
 
-## 参考
+## References
 
 - https://github.com/GHScan/TechNotes/blob/master/2017/Memory_Model.md
 - https://sf.snu.ac.kr/promise-concurrency/

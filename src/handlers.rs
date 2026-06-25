@@ -254,11 +254,14 @@ pub async fn search_handler(
     let all_results: Vec<&crate::post::Post> = if q.is_empty() {
         Vec::new()
     } else {
+        let tokens: Vec<&str> = q.split_whitespace().collect();
         posts.iter()
             .filter(|p| {
-                p.frontmatter.title.to_lowercase().contains(&q)
-                    || p.frontmatter.tags.iter().any(|t| t.to_lowercase().contains(&q))
-                    || p.search_text.contains(&q)
+                tokens.iter().all(|token| {
+                    p.frontmatter.title.to_lowercase().contains(token)
+                        || p.frontmatter.tags.iter().any(|t| t.to_lowercase().contains(token))
+                        || p.search_text.contains(token)
+                })
             })
             .collect()
     };
@@ -651,14 +654,52 @@ mod tests {
 
     #[test]
     fn test_search_filter_logic() {
-        let query = "rust".to_lowercase();
-        let keywords = vec!["rust", "web", "async"];
+        let tokens: Vec<&str> = "rust memory".split_whitespace().collect();
+        let titles = vec!["Rust Memory Model", "Rust Async", "Web Design"];
+        let search_texts = vec!["memory model in rust", "async programming in rust", "css layout tips"];
 
-        let matches: Vec<&str> = keywords.iter()
-            .filter(|t| t.to_lowercase().contains(&query))
-            .copied()
+        let matches: Vec<&str> = titles.iter().enumerate()
+            .filter(|(i, title)| {
+                tokens.iter().all(|token| {
+                    title.to_lowercase().contains(token)
+                        || search_texts[*i].contains(token)
+                })
+            })
+            .map(|(_, title)| *title)
             .collect();
-        assert_eq!(matches, vec!["rust"]);
+        assert_eq!(matches, vec!["Rust Memory Model"], "both 'rust' and 'memory' must match");
+    }
+
+    #[test]
+    fn test_search_filter_logic_single_token() {
+        let tokens: Vec<&str> = "rust".split_whitespace().collect();
+        let titles = vec!["Rust Memory", "Web Design", "Async Rust"];
+
+        let matches: Vec<&str> = titles.iter()
+            .filter(|title| {
+                tokens.iter().all(|token| {
+                    title.to_lowercase().contains(token)
+                })
+            })
+            .map(|title| *title)
+            .collect();
+        assert_eq!(matches, vec!["Rust Memory", "Async Rust"]);
+    }
+
+    #[test]
+    fn test_search_filter_logic_no_match() {
+        let tokens: Vec<&str> = "python".split_whitespace().collect();
+        let titles = vec!["Rust Memory", "Web Design"];
+
+        let matches: Vec<&str> = titles.iter()
+            .filter(|title| {
+                tokens.iter().all(|token| {
+                    title.to_lowercase().contains(token)
+                })
+            })
+            .map(|title| *title)
+            .collect();
+        assert!(matches.is_empty());
     }
 
     #[test]
