@@ -57,7 +57,7 @@
   top: 8px;
 }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -340,10 +340,12 @@ a.tag:hover {
 }
 .table-wrapper {
   overflow-x: auto;
+  max-width: 100%;
   margin: 24px 0;
 }
 .table-wrapper table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   margin: 0;
   font-size: 0.95rem;
@@ -382,6 +384,8 @@ a.tag:hover {
   position: relative;
 }
 .code-table {
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   margin: 0;
   font-size: inherit;
