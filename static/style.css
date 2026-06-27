@@ -329,9 +329,11 @@ a.tag:hover {
 }
 .post-content blockquote p:last-child { margin-bottom: 0; }
 .post-content img {
+  display: block;
   max-width: 100%;
+  height: auto;
   border-radius: var(--radius-sm);
-  margin: 24px 0;
+  margin: 16px 0;
   border: 1px solid var(--border);
 }
 .post-content hr {
