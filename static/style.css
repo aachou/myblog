@@ -57,12 +57,14 @@
   top: 8px;
 }
 
-html { scroll-behavior: smooth; overflow-x: hidden; }
+html { scroll-behavior: smooth; overflow-x: hidden; width: 100%; }
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
   line-height: 1.7;
+  overflow-x: hidden;
+  width: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -344,8 +346,7 @@ a.tag:hover {
   margin: 24px 0;
 }
 .table-wrapper table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   margin: 0;
   font-size: 0.95rem;
@@ -374,6 +375,7 @@ a.tag:hover {
   border-radius: 10px;
   overflow-x: auto;
   overflow-y: hidden;
+  max-width: 100%;
   tab-size: 4;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   font-size: 0.875rem;
@@ -384,8 +386,6 @@ a.tag:hover {
   position: relative;
 }
 .code-table {
-  width: max-content;
-  min-width: 100%;
   border-collapse: collapse;
   margin: 0;
   font-size: inherit;
