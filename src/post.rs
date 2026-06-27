@@ -189,6 +189,14 @@ pub fn reading_time(html: &str) -> usize {
     std::cmp::max(1, (word_count(html) + 100) / 200)
 }
 
+fn wrap_tables(html: &str) -> String {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(r"(?s)(<table[^>]*>)(.*?</table>)").unwrap());
+    re.replace_all(html, |caps: &regex::Captures| {
+        format!(r#"<div class="table-wrapper">{}{}</div>"#, &caps[1], &caps[2])
+    }).to_string()
+}
+
 pub fn render_markdown(content: &str) -> String {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
@@ -202,7 +210,8 @@ pub fn render_markdown(content: &str) -> String {
     html::push_html(&mut html_output, parser);
 
     let html_with_ids = add_heading_ids(&html_output);
-    highlight_code_blocks(&html_with_ids)
+    let html_with_code = highlight_code_blocks(&html_with_ids);
+    wrap_tables(&html_with_code)
 }
 
 fn add_heading_ids(html: &str) -> String {
@@ -850,6 +859,42 @@ mod tests {
         assert_eq!(posts[0].excerpt, "Short body here");
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_wrap_tables_simple() {
+        let html = "<table><tr><td>Cell</td></tr></table>";
+        let result = wrap_tables(html);
+        assert_eq!(result, r#"<div class="table-wrapper"><table><tr><td>Cell</td></tr></table></div>"#);
+    }
+
+    #[test]
+    fn test_wrap_tables_with_attributes() {
+        let html = r#"<table class="test"><tr><td>A</td></tr></table>"#;
+        let result = wrap_tables(html);
+        assert_eq!(result, r#"<div class="table-wrapper"><table class="test"><tr><td>A</td></tr></table></div>"#);
+    }
+
+    #[test]
+    fn test_wrap_tables_no_table() {
+        let html = "<p>Hello</p><pre>code</pre>";
+        let result = wrap_tables(html);
+        assert_eq!(result, html);
+    }
+
+    #[test]
+    fn test_wrap_tables_multiple() {
+        let html = "<table><tr><td>1</td></tr></table><p>sep</p><table><tr><td>2</td></tr></table>";
+        let result = wrap_tables(html);
+        assert_eq!(result, r#"<div class="table-wrapper"><table><tr><td>1</td></tr></table></div><p>sep</p><div class="table-wrapper"><table><tr><td>2</td></tr></table></div>"#);
+    }
+
+    #[test]
+    fn test_render_markdown_wraps_table() {
+        let md = "| A | B |\n|---|---|\n| 1 | 2 |";
+        let result = render_markdown(md);
+        assert!(result.contains(r#"<div class="table-wrapper">"#), "table should be wrapped: {}", result);
+        assert!(result.contains("</table></div>"), "wrapper should be closed: {}", result);
     }
 
 }

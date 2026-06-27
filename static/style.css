@@ -338,10 +338,14 @@ a.tag:hover {
   background: var(--border);
   margin: 36px 0;
 }
-.post-content table {
+.table-wrapper {
+  overflow-x: auto;
+  margin: 24px 0;
+}
+.table-wrapper table {
   width: 100%;
   border-collapse: collapse;
-  margin: 24px 0;
+  margin: 0;
   font-size: 0.95rem;
 }
 .post-content th, .post-content td {
