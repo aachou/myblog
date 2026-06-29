@@ -209,9 +209,31 @@ pub fn render_markdown(content: &str) -> String {
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
 
-    let html_with_ids = add_heading_ids(&html_output);
+    let html_with_fixed_fns = fix_footnote_labels(&html_output);
+    let html_with_ids = add_heading_ids(&html_with_fixed_fns);
     let html_with_code = highlight_code_blocks(&html_with_ids);
     wrap_tables(&html_with_code)
+}
+
+fn fix_footnote_labels(html: &str) -> String {
+    static REF_RE: OnceLock<Regex> = OnceLock::new();
+    static DEF_RE: OnceLock<Regex> = OnceLock::new();
+
+    let re_ref = REF_RE.get_or_init(|| Regex::new(
+        r##"<sup class="footnote-reference"><a href="#([^"]+)">(\d+)</a></sup>"##
+    ).unwrap());
+    let re_def = DEF_RE.get_or_init(|| Regex::new(
+        r##"(<div class="footnote-definition" id="([^"]+)"><sup class="footnote-definition-label">)\d+(</sup>)"##
+    ).unwrap());
+
+    let html = re_ref.replace_all(html, |caps: &regex::Captures| {
+        let key = &caps[1];
+        format!(r##"<sup class="footnote-reference"><a href="#{}">{}</a></sup>"##, key, key)
+    });
+    re_def.replace_all(&html, |caps: &regex::Captures| {
+        let key = &caps[2];
+        format!("{}{}{}", &caps[1], key, &caps[3])
+    }).to_string()
 }
 
 fn add_heading_ids(html: &str) -> String {
@@ -895,6 +917,30 @@ mod tests {
         let result = render_markdown(md);
         assert!(result.contains(r#"<div class="table-wrapper">"#), "table should be wrapped: {}", result);
         assert!(result.contains("</table></div>"), "wrapper should be closed: {}", result);
+    }
+
+    #[test]
+    fn test_fix_footnote_labels_replaces_auto_number_with_key() {
+        let input = concat!(
+            r##"<sup class="footnote-reference"><a href="#R">16</a></sup>"##,
+            r##"<sup class="footnote-reference"><a href="#11">1</a></sup>"##,
+            r##"<div class="footnote-definition" id="R"><sup class="footnote-definition-label">16</sup><p>note</p></div>"##,
+            r##"<div class="footnote-definition" id="11"><sup class="footnote-definition-label">1</sup><p>note</p></div>"##,
+        );
+        let result = fix_footnote_labels(input);
+        assert!(result.contains(r##"<a href="#R">R</a>"##), "reference label should be R, got: {}", result);
+        assert!(result.contains(r##"<a href="#11">11</a>"##), "reference label should be 11, got: {}", result);
+        assert!(result.contains(r##"<sup class="footnote-definition-label">R</sup>"##), "def label should be R, got: {}", result);
+        assert!(result.contains(r##"<sup class="footnote-definition-label">11</sup>"##), "def label should be 11, got: {}", result);
+        assert!(!result.contains(">16<"), "should not contain auto-number 16: {}", result);
+        assert!(!result.contains(">1<"), "should not contain auto-number 1: {}", result);
+    }
+
+    #[test]
+    fn test_fix_footnote_labels_unchanged_for_no_footnotes() {
+        let input = r##"<p>Hello <strong>world</strong></p>"##;
+        let result = fix_footnote_labels(input);
+        assert_eq!(result, input);
     }
 
 }

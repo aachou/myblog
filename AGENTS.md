@@ -7,7 +7,7 @@ Personal blog built with Rust + Axum 0.7. Flat-file, no database.
 ```
 cargo build
 cargo run            # http://127.0.0.1:3000
-cargo test           # all 117 tests (85 unit + 32 integration), no external services
+cargo test           # all 127 tests (94 unit + 33 integration), no external services
 cargo clippy         # zero warnings expected
 cargo test <name>    # focused test
 ```
@@ -35,7 +35,8 @@ All in one inner router with `Cache-Control: no-cache`. Outer router adds static
 - **`src/lib.rs`**: `AppState { tera: RwLock<Tera>, posts: RwLock<Arc<Vec<Post>>> }`. 4 config values (`SITE_URL`, `SITE_TITLE`, `SITE_DESC`, `POSTS_PER_PAGE`) read from env via `OnceLock` (cached after first access, never re-read).
 - **`src/post.rs`**: Parses `+++`-delimited TOML frontmatter from `posts/*.md`. Markdown via pulldown-cmark (tables, footnotes, strikethrough, tasklists, heading attributes enabled). **Slug = filename stem**, not frontmatter. Code blocks highlighted via syntect theme `"InspiredGitHub"` using `SyntaxSet::load_defaults_newlines` + `default-fancy` features. `resolve_syntax()` maps aliases (e.g. `jsx`→`javascript`, `typescript`→`javascript`, `vue`/`svelte`→`html`, `kotlin`→`java`, `dart`→`javascript`, `elixir`→`ruby`) for languages not in syntect's default set.
 - **Tera**: `autoescape_on(vec![])` — auto-escaping disabled globally. `post.content_html` is pre-rendered HTML (use `| safe` in templates). All other variables must use `escape_xml` filter or `escape_xml()` helper explicitly.
-- **Regex**: all hot-path regex cached via `OnceLock` (heading IDs, TOC extraction, code block highlighting, date validation).
+- **Footnotes**: pulldown-cmark auto-numbers footnotes by appearance order. `fix_footnote_labels()` post-processes the HTML, replacing auto-numbers with the original footnote key from `href`/`id` attributes, so `[^11]` displays as `11` rather than `1`.
+- **Regex**: all hot-path regex cached via `OnceLock` (heading IDs, TOC extraction, code block highlighting, date validation, footnote labels).
 - **RwLock poisoning recovery**: `lock().unwrap_or_else(|e| e.into_inner())` on all 3 locks.
 - **JS** (`static/script.js`): `/` focuses search input; `ArrowLeft`/`ArrowRight` navigate prev/next post.
 - **Comments**: [utterances](https://utteranc.es) — GitHub Issues-based, client-side only. Script in `templates/post.html`. CSP allows `script-src` + `frame-src` for `https://utteranc.es`. Theme: `preferred-color-scheme`. Repo: `aachou/myblog`.
