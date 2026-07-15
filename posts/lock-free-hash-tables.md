@@ -1,7 +1,7 @@
 +++
 title = "Lock-Free Hash Tables"
 date = "2026-07-04"
-tags = ["Data Structure", "Concurrency", "Lock-free"]
+tags = ["Data-structure", "Concurrency", "Lock-free", "Hash-table"]
 excerpt = "一个可扩展哈希表的无锁实现，支持并发插入、删除和查找操作，期望时间复杂度均为 O(1)，仅使用 load、store 和 compare-and-swap 操作即可轻松实现。"
 +++
 

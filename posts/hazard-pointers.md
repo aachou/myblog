@@ -1,7 +1,7 @@
 +++
 title = "Hazard Pointers"
 date = "2026-06-30"
-tags = ["Hazard Pointers", "Memory", "Concurrency"]
+tags = ["Hazard Pointers", "Memory-reclamation", "Concurrency"]
 excerpt = "风险指针（Hazard Pointers）是一种内存管理方法，允许内存被回收后任意重用。它适用于用户级程序，也适用于系统程序，不依赖于特殊的内核调度的支持，并且是无等待的（wait-free）。"
 +++
 
