@@ -742,7 +742,7 @@ Completing a behaviour. The function Release from class Request notifies the nex
 
 | 类          | 对应图 2 中的       | 职责                                       |
 | ----------- | ------------------- | ------------------------------------------ |
-| `CownBase`  | 三角形（cown）      | 记录该 cown 链上的**最后一个 Request**     |
+| `CownBase`  | 三角形（cown）      | 记录该 cown 链上的最后一个 Request         |
 | `Request`   | 蓝色方块 + 蓝色箭头 | 一条边，代表"某个 behaviour 需要某个 cown" |
 | `Behaviour` | 圆角矩形            | `when` 块，包含要执行的代码 + 计数         |
 
