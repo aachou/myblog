@@ -2,7 +2,7 @@
 title = "Shared Memory Consistency Models: A Tutorial"
 date = "2026-07-22"
 tags = ["Memory Model", "Concurrency", "SC", "Consistency"]
-excerpt = "BoC 提供了一个强大的并发原语来统一并行和协调抽象，相比于 Actor 模型可以更加灵活地协调对多个资源的访问。"
+excerpt = "本文以顺序一致性模型为切入点，通过顺序一致模型在实现中遇到的问题将其划分成两个部分：程序顺序和写原子性，并以此为基础划分不同的宽松内存模型并进行描述。"
 +++
 
 <h1 align="center">Shared Memory Consistency Models: A Tutorial</h1>
