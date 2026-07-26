@@ -1,7 +1,7 @@
 +++
 title = "Linearizability: A Correctness Condition for Concurrent Objects"
 date = "2026-07-15"
-tags = ["Linearizability", "Concurrency", "Condition", "Consistency"]
+tags = ["linearizability", "concurrency", "condition", "consistency"]
 excerpt = "线性一致性（Linearizability）是 Herlihy & Wing 提出的并发对象正确性条件。它要求每个操作在其调用之后、返回之前的某个瞬间点原子地完成（这个点称为线性化点），所有非并发操作的先后顺序必须保留。判断一个并发执行是否正确，就是给每个操作找线性化点并排序，看结果是否符合数据类型本身的顺序规约。"
 +++
 

@@ -1,7 +1,7 @@
 +++
 title = "《多处理器编程的艺术》 第一章 导论"
 date = "2026-07-25"
-tags = ["Multiprocessor-programming", "Concurrency"]
+tags = ["multiprocessor-programming", "concurrency"]
 +++
 
 <h1 align="center">多处理器编程的艺术</h1>

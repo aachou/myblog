@@ -1,7 +1,7 @@
 +++
 title = "Shared Memory Consistency Models: A Tutorial"
 date = "2026-07-22"
-tags = ["Memory Model", "Concurrency", "SC", "Consistency"]
+tags = ["memory Model", "concurrency", "sc", "consistency"]
 excerpt = "本文以顺序一致性模型为切入点，通过顺序一致模型在实现中遇到的问题将其划分成两个部分：程序顺序和写原子性，并以此为基础划分不同的宽松内存模型并进行描述。"
 +++
 

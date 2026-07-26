@@ -1,7 +1,7 @@
 +++
 title = "Behaviour-Oriented Concurrency"
 date = "2026-07-14"
-tags = ["BoC", "Concurrency"]
+tags = ["boc", "concurrency"]
 excerpt = "BoC 提供了一个强大的并发原语来统一并行和协调抽象，相比于 Actor 模型可以更加灵活地协调对多个资源的访问。"
 +++
 
