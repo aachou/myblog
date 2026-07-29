@@ -99,6 +99,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var img = document.getElementById('crop-image');
         img.onload = function() {
+          if (typeof Cropper === 'undefined') {
+            cropModal.style.display = 'none';
+            return;
+          }
           if (cropper) cropper.destroy();
           cropper = new Cropper(img, {
             aspectRatio: 1,
@@ -127,7 +131,11 @@ document.addEventListener('DOMContentLoaded', function() {
           if (data.avatar_path) {
             aboutAvatar.src = data.avatar_path + '?t=' + Date.now();
           }
-        }).catch(function() {});
+        }).catch(function() {
+          cropConfirm.textContent = '上传失败';
+          setTimeout(function() { cropConfirm.textContent = '确认'; cropConfirm.disabled = false; }, 2000);
+          return;
+        });
         cropModal.style.display = 'none';
         if (cropper) { cropper.destroy(); cropper = null; }
         cropConfirm.disabled = false;
@@ -145,6 +153,16 @@ document.addEventListener('DOMContentLoaded', function() {
         cropModal.style.display = 'none';
         if (cropper) { cropper.destroy(); cropper = null; }
       }
+    });
+  }
+
+  // KaTeX
+  if (typeof katex !== 'undefined') {
+    document.querySelectorAll('.katex-block').forEach(function(el) {
+      katex.render(el.textContent, el, {displayMode: true, throwOnError: false});
+    });
+    document.querySelectorAll('.katex-inline').forEach(function(el) {
+      katex.render(el.textContent, el, {displayMode: false, throwOnError: false});
     });
   }
 });

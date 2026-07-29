@@ -1,3 +1,6 @@
+use axum::http::HeaderValue;
+use axum::routing::{get, post};
+use axum::Router;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -6,11 +9,8 @@ use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tracing_subscriber::EnvFilter;
-use axum::http::HeaderValue;
-use axum::routing::{get, post};
-use axum::Router;
 
-use myblog::{AppState, handlers, post};
+use myblog::{handlers, post, AppState};
 
 #[tokio::main]
 async fn main() {
@@ -85,17 +85,19 @@ async fn main() {
             if is_post {
                 match post::load_posts("posts") {
                     Ok(new_posts) => {
-                        *watcher_state.posts.write().unwrap_or_else(|e| e.into_inner()) = Arc::new(new_posts);
+                        *watcher_state
+                            .posts
+                            .write()
+                            .unwrap_or_else(|e| e.into_inner()) = Arc::new(new_posts);
                         tracing::info!("Posts reloaded after file change");
                     }
                     Err(e) => tracing::warn!("Failed to reload posts: {}", e),
                 }
             }
             if is_template {
-                if let Ok(mut tera) = watcher_state.tera.write() {
-                    let _ = tera.full_reload();
-                    tracing::info!("Templates reloaded after file change");
-                }
+                let mut tera = watcher_state.tera.write().unwrap_or_else(|e| e.into_inner());
+                let _ = tera.full_reload();
+                tracing::info!("Templates reloaded after file change");
             }
         }
     });

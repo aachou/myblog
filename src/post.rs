@@ -4,15 +4,17 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
+use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
 use syntect::html::styled_line_to_highlighted_html;
 use syntect::parsing::{SyntaxReference, SyntaxSet};
-use syntect::easy::HighlightLines;
 use syntect::util::LinesWithEndings;
 
 static DATE_RE: OnceLock<Regex> = OnceLock::new();
 fn is_valid_date(date: &str) -> bool {
-    DATE_RE.get_or_init(|| Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap()).is_match(date)
+    DATE_RE
+        .get_or_init(|| Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap())
+        .is_match(date)
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -68,7 +70,13 @@ fn parse_frontmatter(content: &str) -> Option<(Frontmatter, String)> {
 fn slugify(text: &str) -> String {
     text.to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' { c } else { ' ' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' {
+                c
+            } else {
+                ' '
+            }
+        })
         .collect::<String>()
         .split_whitespace()
         .collect::<Vec<&str>>()
@@ -86,23 +94,29 @@ fn unescape_html(text: &str) -> String {
 
 fn strip_html_tags(html: &str) -> String {
     #[derive(PartialEq)]
-    enum State { Normal, Tag, Script, Style, Comment }
+    enum State {
+        Normal,
+        Tag,
+        Script,
+        Style,
+        Comment,
+    }
     let mut result = String::new();
     let mut state = State::Normal;
     let mut buf = String::new();
-    let lower = html.to_lowercase();
 
+    let bytes = html.as_bytes();
     for (i, c) in html.char_indices() {
         match state {
             State::Normal => {
                 if c == '<' {
-                    let rest = &lower[i..];
-                    if rest.starts_with("<!--") {
+                    let suffix = &bytes[i..];
+                    if suffix.len() > 4 && suffix[1..4] == *b"!--" {
                         state = State::Comment;
-                    } else if rest.starts_with("<script") {
+                    } else if suffix.len() > 7 && suffix[..7].eq_ignore_ascii_case(b"<script") {
                         state = State::Script;
                         buf.clear();
-                    } else if rest.starts_with("<style") {
+                    } else if suffix.len() > 6 && suffix[..6].eq_ignore_ascii_case(b"<style") {
                         state = State::Style;
                         buf.clear();
                     } else {
@@ -122,7 +136,7 @@ fn strip_html_tags(html: &str) -> String {
                     buf.clear();
                 }
                 buf.push(c);
-                if buf.to_lowercase().ends_with("</script>") {
+                if buf.len() >= 9 && buf[buf.len() - 9..].eq_ignore_ascii_case("</script>") {
                     state = State::Normal;
                 }
             }
@@ -131,7 +145,7 @@ fn strip_html_tags(html: &str) -> String {
                     buf.clear();
                 }
                 buf.push(c);
-                if buf.to_lowercase().ends_with("</style>") {
+                if buf.len() >= 7 && buf[buf.len() - 7..].eq_ignore_ascii_case("</style>") {
                     state = State::Normal;
                 }
             }
@@ -143,6 +157,33 @@ fn strip_html_tags(html: &str) -> String {
         }
     }
     result.trim().to_string()
+}
+
+fn markdown_to_plain_text(md: &str) -> String {
+    static IMG_RE: OnceLock<Regex> = OnceLock::new();
+    static LINK_RE: OnceLock<Regex> = OnceLock::new();
+    static SUP_RE: OnceLock<Regex> = OnceLock::new();
+    static SUB_RE: OnceLock<Regex> = OnceLock::new();
+    let text = IMG_RE
+        .get_or_init(|| Regex::new(r"!\[([^\]]*)\]\([^)]*\)").unwrap())
+        .replace_all(md, "$1");
+    let text = LINK_RE
+        .get_or_init(|| Regex::new(r"\[([^\]]*)\]\([^)]*\)").unwrap())
+        .replace_all(&text, "$1");
+    let text = SUP_RE
+        .get_or_init(|| Regex::new(r"\^([^^]+?)\^").unwrap())
+        .replace_all(&text, "$1");
+    let text = SUB_RE
+        .get_or_init(|| Regex::new(r"~([^~]+?)~").unwrap())
+        .replace_all(&text, "$1");
+    let text = text.replace("**", "");
+    let text = text.replace("__", "");
+    let text = text.replace("`", "");
+    let text = text.replace("~~", "");
+    let text = text.replace("\r", " ");
+    let text = text.replace("\n", " ");
+    let text = unescape_html(&text);
+    text.split_whitespace().collect::<Vec<&str>>().join(" ")
 }
 
 fn trim_excerpt_source(md: &str) -> &str {
@@ -173,8 +214,8 @@ pub fn extract_toc(html: &str) -> Vec<TocEntry> {
     entries
 }
 
-pub fn word_count(html: &str) -> usize {
-    strip_html_tags(html).split_whitespace().count()
+pub fn word_count(text: &str) -> usize {
+    text.split_whitespace().count()
 }
 
 pub fn escape_xml(text: &str) -> String {
@@ -185,19 +226,28 @@ pub fn escape_xml(text: &str) -> String {
         .replace("'", "&apos;")
 }
 
-pub fn reading_time(html: &str) -> usize {
-    std::cmp::max(1, (word_count(html) + 100) / 200)
+pub fn reading_time(text: &str) -> usize {
+    std::cmp::max(1, (word_count(text) + 100) / 200)
 }
 
 fn wrap_tables(html: &str) -> String {
     static RE: OnceLock<Regex> = OnceLock::new();
     let re = RE.get_or_init(|| Regex::new(r"(?s)(<table[^>]*>)(.*?</table>)").unwrap());
     re.replace_all(html, |caps: &regex::Captures| {
-        format!(r#"<div class="table-wrapper">{}{}</div>"#, &caps[1], &caps[2])
-    }).to_string()
+        format!(
+            r#"<div class="table-wrapper">{}{}</div>"#,
+            &caps[1], &caps[2]
+        )
+    })
+    .to_string()
 }
 
 pub fn render_markdown(content: &str) -> String {
+    let content = pre_math(content);
+    let (content, katex_stash) = protect_katex(&content);
+    let content = pre_sup_sub(&content);
+    let content = restore_katex(&content, &katex_stash);
+
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_FOOTNOTES);
@@ -205,7 +255,7 @@ pub fn render_markdown(content: &str) -> String {
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
-    let parser = Parser::new_ext(content, options);
+    let parser = Parser::new_ext(&content, options);
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
 
@@ -215,25 +265,90 @@ pub fn render_markdown(content: &str) -> String {
     wrap_tables(&html_with_code)
 }
 
+fn pre_math(content: &str) -> String {
+    static BLOCK_RE: OnceLock<Regex> = OnceLock::new();
+    static INLINE_RE: OnceLock<Regex> = OnceLock::new();
+
+    let re_block = BLOCK_RE.get_or_init(|| Regex::new(r##"(?s)\$\$(.+?)\$\$"##).unwrap());
+    let re_inline = INLINE_RE.get_or_init(|| Regex::new(r##"\$([^$\s]+?)\$"##).unwrap());
+
+    let content = re_block.replace_all(content, |caps: &regex::Captures| {
+        format!(r##"<div class="katex-block">{}</div>"##, &caps[1])
+    });
+    re_inline
+        .replace_all(&content, |caps: &regex::Captures| {
+            format!(r##"<span class="katex-inline">{}</span>"##, &caps[1])
+        })
+        .to_string()
+}
+
+fn protect_katex(content: &str) -> (String, Vec<String>) {
+    static KATEX_RE: OnceLock<Regex> = OnceLock::new();
+    let re = KATEX_RE.get_or_init(|| {
+        Regex::new(
+            r##"(?s)<(?:span|div)\s+class="katex-(?:block|inline)"[^>]*>.*?</(?:span|div)>"##,
+        )
+        .unwrap()
+    });
+    let mut stash = Vec::new();
+    let result = re.replace_all(content, |caps: &regex::Captures| {
+        let idx = stash.len();
+        stash.push(caps[0].to_string());
+        format!("\x01KATEX_{}\x01", idx)
+    });
+    (result.to_string(), stash)
+}
+
+fn restore_katex(content: &str, stash: &[String]) -> String {
+    let mut result = content.to_string();
+    for (i, original) in stash.iter().enumerate() {
+        result = result.replace(&format!("\x01KATEX_{}\x01", i), original);
+    }
+    result
+}
+
+fn pre_sup_sub(content: &str) -> String {
+    static SUP_RE: OnceLock<Regex> = OnceLock::new();
+    static SUB_RE: OnceLock<Regex> = OnceLock::new();
+
+    let re_sup = SUP_RE.get_or_init(|| Regex::new(r##"([^\[]|^)\^([^^]+?)\^"##).unwrap());
+    let re_sub = SUB_RE.get_or_init(|| Regex::new(r##"(^|[^~])~([^~]+?)~([^~]|$)"##).unwrap());
+
+    let content = re_sup.replace_all(content, |caps: &regex::Captures| {
+        format!("{0}<sup>{1}</sup>", &caps[1], &caps[2])
+    });
+    re_sub
+        .replace_all(&content, |caps: &regex::Captures| {
+            format!("{0}<sub>{1}</sub>{2}", &caps[1], &caps[2], &caps[3])
+        })
+        .to_string()
+}
+
 fn fix_footnote_labels(html: &str) -> String {
     static REF_RE: OnceLock<Regex> = OnceLock::new();
     static DEF_RE: OnceLock<Regex> = OnceLock::new();
 
-    let re_ref = REF_RE.get_or_init(|| Regex::new(
-        r##"<sup class="footnote-reference"><a href="#([^"]+)">(\d+)</a></sup>"##
-    ).unwrap());
+    let re_ref = REF_RE.get_or_init(|| {
+        Regex::new(r##"<sup class="footnote-reference"><a href="#([^"]+)">(\d+)</a></sup>"##)
+            .unwrap()
+    });
     let re_def = DEF_RE.get_or_init(|| Regex::new(
         r##"(<div class="footnote-definition" id="([^"]+)"><sup class="footnote-definition-label">)\d+(</sup>)"##
     ).unwrap());
 
     let html = re_ref.replace_all(html, |caps: &regex::Captures| {
         let key = &caps[1];
-        format!(r##"<sup class="footnote-reference"><a href="#{}">{}</a></sup>"##, key, key)
+        format!(
+            r##"<sup class="footnote-reference"><a href="#{}">{}</a></sup>"##,
+            key, key
+        )
     });
-    re_def.replace_all(&html, |caps: &regex::Captures| {
-        let key = &caps[2];
-        format!("{}{}{}", &caps[1], key, &caps[3])
-    }).to_string()
+    re_def
+        .replace_all(&html, |caps: &regex::Captures| {
+            let key = &caps[2];
+            format!("{}{}{}", &caps[1], key, &caps[3])
+        })
+        .to_string()
 }
 
 fn add_heading_ids(html: &str) -> String {
@@ -250,9 +365,17 @@ fn add_heading_ids(html: &str) -> String {
             format!("<h{} id=\"{}\">{}</h{}>", level, id, text, level)
         } else {
             let id = slugify(text);
-            format!("<h{} id=\"{}\" {}>{}</h{}>", level, id, attrs.trim_start(), text, level)
+            format!(
+                "<h{} id=\"{}\" {}>{}</h{}>",
+                level,
+                id,
+                attrs.trim_start(),
+                text,
+                level
+            )
         }
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn highlight_code_blocks(html: &str) -> String {
@@ -261,16 +384,18 @@ fn highlight_code_blocks(html: &str) -> String {
     let theme = &ts.themes["InspiredGitHub"];
 
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(
-        r#"(?s)<pre><code(?: class="language-([\w.#+\-]+)")?>(.*?)</code></pre>"#
-    ).unwrap());
+    let re = RE.get_or_init(|| {
+        Regex::new(r#"(?s)<pre><code(?: class="language-([\w.#+\-]+)")?>(.*?)</code></pre>"#)
+            .unwrap()
+    });
 
     re.replace_all(html, |caps: &regex::Captures| {
         let lang = caps.get(1).map(|m| m.as_str()).unwrap_or("");
         let code_escaped = caps.get(2).unwrap().as_str();
         let code = unescape_html(code_escaped.trim_end_matches('\n'));
         format_code_block(&code, lang, ss, theme)
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn resolve_syntax<'a>(lang: &'a str, ss: &'a SyntaxSet) -> Option<&'a SyntaxReference> {
@@ -290,17 +415,33 @@ fn resolve_syntax<'a>(lang: &'a str, ss: &'a SyntaxSet) -> Option<&'a SyntaxRefe
         .or_else(|| ss.find_syntax_by_name(mapped))
 }
 
-fn format_code_block(code: &str, lang: &str, ss: &SyntaxSet, theme: &syntect::highlighting::Theme) -> String {
-    let lang_attr = if lang.is_empty() { String::new() } else { format!(" data-lang=\"{}\"", lang) };
+fn format_code_block(
+    code: &str,
+    lang: &str,
+    ss: &SyntaxSet,
+    theme: &syntect::highlighting::Theme,
+) -> String {
+    let lang_attr = if lang.is_empty() {
+        String::new()
+    } else {
+        format!(" data-lang=\"{}\"", lang)
+    };
 
     let syntax = resolve_syntax(lang, ss);
     if syntax.is_none() {
-        let lines: Vec<String> = code.split('\n').map(|s| s.trim_end_matches('\r').to_string()).collect();
+        let lines: Vec<String> = code
+            .split('\n')
+            .map(|s| s.trim_end_matches('\r').to_string())
+            .collect();
         let mut out = format!("<div class=\"code-block\"{}>", lang_attr);
         out.push_str("<table class=\"code-table\"><tbody>");
         for (i, line) in lines.iter().enumerate() {
             let num = i + 1;
-            out.push_str(&format!("<tr><td class=\"ln\">{}</td><td class=\"lc\">{}</td></tr>\n", num, escape_xml(line)));
+            out.push_str(&format!(
+                "<tr><td class=\"ln\">{}</td><td class=\"lc\">{}</td></tr>\n",
+                num,
+                escape_xml(line)
+            ));
         }
         out.push_str("</tbody></table></div>");
         return out;
@@ -313,9 +454,14 @@ fn format_code_block(code: &str, lang: &str, ss: &SyntaxSet, theme: &syntect::hi
     for (i, line) in LinesWithEndings::from(code).enumerate() {
         let num = i + 1;
         let ranges = highlighter.highlight_line(line, ss).unwrap_or_default();
-        let line_html = styled_line_to_highlighted_html(&ranges, syntect::html::IncludeBackground::No)
-            .unwrap_or_else(|_| escape_xml(line.trim_end()));
-        out.push_str(&format!("<tr><td class=\"ln\">{}</td><td class=\"lc\">{}</td></tr>\n", num, line_html.trim_end()));
+        let line_html =
+            styled_line_to_highlighted_html(&ranges, syntect::html::IncludeBackground::No)
+                .unwrap_or_else(|_| escape_xml(line.trim_end()));
+        out.push_str(&format!(
+            "<tr><td class=\"ln\">{}</td><td class=\"lc\">{}</td></tr>\n",
+            num,
+            line_html.trim_end()
+        ));
     }
     out.push_str("</tbody></table></div>");
     out
@@ -338,33 +484,53 @@ pub fn load_posts(dir: &str) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
             let content = fs::read_to_string(&path)?;
             match parse_frontmatter(&content) {
                 Some((frontmatter, markdown)) => {
-                    let slug = path.file_stem()
+                    if !is_valid_date(&frontmatter.date) {
+                        tracing::warn!(
+                            "Skipping {}: invalid date format '{}' (expected YYYY-MM-DD)",
+                            path.display(),
+                            frontmatter.date
+                        );
+                        continue;
+                    }
+
+                    let slug = path
+                        .file_stem()
                         .and_then(|s| s.to_str())
                         .map(|s| s.to_string())
                         .unwrap_or_default();
                     let content_html = render_markdown(&markdown);
+                    let plain_text = strip_html_tags(&content_html);
+                    let wc = word_count(&plain_text);
+                    let rt = reading_time(&plain_text);
 
                     let excerpt = frontmatter.excerpt.clone().unwrap_or_else(|| {
                         let source = trim_excerpt_source(&markdown);
-                        let html = render_markdown(source);
-                        let text = strip_html_tags(&html);
+                        let text = markdown_to_plain_text(source);
                         let truncated: String = text.chars().take(160).collect();
-                        if text.chars().count() > 160 { format!("{}...", truncated) } else { truncated }
+                        if text.chars().count() > 160 {
+                            format!("{}...", truncated)
+                        } else {
+                            truncated
+                        }
                     });
 
                     let toc = extract_toc(&content_html);
-                    let wc = word_count(&content_html);
-                    let rt = reading_time(&content_html);
-                    let search_text = format!("{} {}", strip_html_tags(&excerpt), strip_html_tags(&content_html)).to_lowercase();
-
-                    if !is_valid_date(&frontmatter.date) {
-                        tracing::warn!("Skipping {}: invalid date format '{}' (expected YYYY-MM-DD)", path.display(), frontmatter.date);
-                        continue;
-                    }
+                    let search_text = format!(
+                        "{} {} {}",
+                        frontmatter.title.to_lowercase(),
+                        frontmatter.tags.join(" ").to_lowercase(),
+                        plain_text.to_lowercase(),
+                    );
 
                     posts.push(Post {
-                        frontmatter, slug, content_html, excerpt,
-                        reading_time: rt, toc, word_count: wc, search_text,
+                        frontmatter,
+                        slug,
+                        content_html,
+                        excerpt,
+                        reading_time: rt,
+                        toc,
+                        word_count: wc,
+                        search_text,
                     });
                 }
                 None => {
@@ -455,7 +621,10 @@ mod tests {
 
     #[test]
     fn test_strip_html_tags_with_text_around() {
-        assert_eq!(strip_html_tags("before <b>bold</b> after"), "before bold after");
+        assert_eq!(
+            strip_html_tags("before <b>bold</b> after"),
+            "before bold after"
+        );
     }
 
     #[test]
@@ -506,7 +675,7 @@ mod tests {
 
     #[test]
     fn test_word_count_basic() {
-        assert_eq!(word_count("<p>one two three four</p>"), 4);
+        assert_eq!(word_count("one two three four"), 4);
     }
 
     #[test]
@@ -516,29 +685,35 @@ mod tests {
 
     #[test]
     fn test_word_count_with_html() {
-        assert_eq!(word_count("<div><p>hello world</p><span>foo bar</span></div>"), 3);
+        assert_eq!(
+            word_count("hello world foo bar"),
+            4
+        );
     }
 
     #[test]
     fn test_reading_time_minimum() {
-        assert_eq!(reading_time("<p>short</p>"), 1);
+        assert_eq!(reading_time("short"), 1);
     }
 
     #[test]
     fn test_reading_time_200_words() {
-        let words = "word ".repeat(200);
-        assert_eq!(reading_time(&format!("<p>{}</p>", words)), 1);
+        let words = "word ";
+        assert_eq!(reading_time(&words.repeat(200)), 1);
     }
 
     #[test]
     fn test_reading_time_400_words() {
-        let words = "word ".repeat(400);
-        assert_eq!(reading_time(&format!("<p>{}</p>", words)), 2);
+        let words = "word ";
+        assert_eq!(reading_time(&words.repeat(400)), 2);
     }
 
     #[test]
     fn test_escape_xml_all() {
-        assert_eq!(escape_xml("a&b<c>d\"e'f"), "a&amp;b&lt;c&gt;d&quot;e&apos;f");
+        assert_eq!(
+            escape_xml("a&b<c>d\"e'f"),
+            "a&amp;b&lt;c&gt;d&quot;e&apos;f"
+        );
     }
 
     #[test]
@@ -553,7 +728,10 @@ mod tests {
 
     #[test]
     fn test_unescape_html_all() {
-        assert_eq!(unescape_html("&amp; &lt; &gt; &quot; &#39; &#x27;"), "& < > \" ' '");
+        assert_eq!(
+            unescape_html("&amp; &lt; &gt; &quot; &#39; &#x27;"),
+            "& < > \" ' '"
+        );
     }
 
     #[test]
@@ -660,7 +838,8 @@ mod tests {
 
     #[test]
     fn test_load_posts_nonexistent_dir() {
-        let dir = std::env::temp_dir().join(format!("myblog_test_nonexistent_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("myblog_test_nonexistent_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let result = load_posts(dir.to_str().unwrap()).unwrap();
         assert!(result.is_empty());
@@ -684,7 +863,8 @@ mod tests {
 
     #[test]
     fn test_load_posts_generates_excerpt() {
-        let dir = std::env::temp_dir().join(format!("myblog_test_autoexcerpt_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("myblog_test_autoexcerpt_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -713,23 +893,30 @@ mod tests {
         assert!(!toc.is_empty());
         assert_eq!(toc[0].text, "Heading");
 
-        let wc = word_count(&html);
+        let plain = strip_html_tags(&html);
+        let wc = word_count(&plain);
         assert!(wc > 0);
 
-        let rt = reading_time(&html);
+        let rt = reading_time(&plain);
         assert_eq!(rt, 1);
 
-        let stripped = strip_html_tags(&html).to_lowercase();
-        assert!(stripped.contains("heading"));
-        assert!(stripped.contains("print"));
+        let stripped_lower = plain.to_lowercase();
+        assert!(stripped_lower.contains("heading"));
+        assert!(stripped_lower.contains("print"));
     }
 
     #[test]
     fn test_highlight_code_blocks_with_lang() {
         let html = "<pre><code class=\"language-rust\">fn main() {}</code></pre>";
         let result = highlight_code_blocks(html);
-        assert!(result.contains("code-block"), "should have code-block wrapper");
-        assert!(result.contains("data-lang=\"rust\""), "should preserve language attribute");
+        assert!(
+            result.contains("code-block"),
+            "should have code-block wrapper"
+        );
+        assert!(
+            result.contains("data-lang=\"rust\""),
+            "should preserve language attribute"
+        );
         assert!(result.contains("<table"), "should include table markup");
     }
 
@@ -737,8 +924,14 @@ mod tests {
     fn test_highlight_code_blocks_plain() {
         let html = "<pre><code>plain text</code></pre>";
         let result = highlight_code_blocks(html);
-        assert!(result.contains("code-block"), "should have code-block wrapper");
-        assert!(!result.contains("data-lang"), "should NOT have language attribute for plain blocks");
+        assert!(
+            result.contains("code-block"),
+            "should have code-block wrapper"
+        );
+        assert!(
+            !result.contains("data-lang"),
+            "should NOT have language attribute for plain blocks"
+        );
         assert!(result.contains("<table"), "should include table markup");
     }
 
@@ -801,34 +994,64 @@ mod tests {
     #[test]
     fn test_resolve_syntax_unknown() {
         let ss = get_syntax_set();
-        assert!(resolve_syntax("mermaid", ss).is_none(), "mermaid should not be resolved");
-        assert!(resolve_syntax("hcl", ss).is_none(), "hcl should not be resolved");
-        assert!(resolve_syntax("unknown_language", ss).is_none(), "unknown language should not be resolved");
+        assert!(
+            resolve_syntax("mermaid", ss).is_none(),
+            "mermaid should not be resolved"
+        );
+        assert!(
+            resolve_syntax("hcl", ss).is_none(),
+            "hcl should not be resolved"
+        );
+        assert!(
+            resolve_syntax("unknown_language", ss).is_none(),
+            "unknown language should not be resolved"
+        );
     }
 
     #[test]
     fn test_highlight_code_blocks_jsx() {
         let html = r#"<pre><code class="language-jsx">const x = <div /></code></pre>"#;
         let result = highlight_code_blocks(html);
-        assert!(result.contains("code-block"), "should have code-block wrapper");
-        assert!(result.contains(r#"data-lang="jsx""#), "should preserve original jsx language attribute");
+        assert!(
+            result.contains("code-block"),
+            "should have code-block wrapper"
+        );
+        assert!(
+            result.contains(r#"data-lang="jsx""#),
+            "should preserve original jsx language attribute"
+        );
     }
 
     #[test]
     fn test_highlight_code_blocks_typescript() {
         let html = r#"<pre><code class="language-typescript">const x: number = 1</code></pre>"#;
         let result = highlight_code_blocks(html);
-        assert!(result.contains("code-block"), "should have code-block wrapper");
-        assert!(result.contains(r#"data-lang="typescript""#), "should preserve original language attribute");
+        assert!(
+            result.contains("code-block"),
+            "should have code-block wrapper"
+        );
+        assert!(
+            result.contains(r#"data-lang="typescript""#),
+            "should preserve original language attribute"
+        );
     }
 
     #[test]
     fn test_highlight_code_blocks_unmapped() {
         let html = r#"<pre><code class="language-mermaid">graph TD; A-->B;</code></pre>"#;
         let result = highlight_code_blocks(html);
-        assert!(result.contains("code-block"), "should have code-block wrapper");
-        assert!(result.contains(r#"data-lang="mermaid""#), "should preserve original language attribute");
-        assert!(!result.contains("<span style"), "should NOT have syntax-highlighted spans");
+        assert!(
+            result.contains("code-block"),
+            "should have code-block wrapper"
+        );
+        assert!(
+            result.contains(r#"data-lang="mermaid""#),
+            "should preserve original language attribute"
+        );
+        assert!(
+            !result.contains("<span style"),
+            "should NOT have syntax-highlighted spans"
+        );
     }
 
     #[test]
@@ -843,13 +1066,22 @@ mod tests {
     fn test_add_heading_ids_duplicates() {
         let html = "<h2>Intro</h2><h2>Intro</h2>";
         let result = add_heading_ids(html);
-        assert!(result.contains(r#"id="intro""#), "both occurrences should have id=intro: {}", result);
-        assert_eq!(result.matches(r#"id="intro""#).count(), 2, "both headings get same id");
+        assert!(
+            result.contains(r#"id="intro""#),
+            "both occurrences should have id=intro: {}",
+            result
+        );
+        assert_eq!(
+            result.matches(r#"id="intro""#).count(),
+            2,
+            "both headings get same id"
+        );
     }
 
     #[test]
     fn test_load_posts_empty_tags() {
-        let dir = std::env::temp_dir().join(format!("myblog_test_empty_tags_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("myblog_test_empty_tags_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -857,14 +1089,19 @@ mod tests {
         std::fs::write(dir.join("no-tags.md"), content).unwrap();
         let posts = load_posts(dir.to_str().unwrap()).unwrap();
         assert_eq!(posts.len(), 1);
-        assert!(posts[0].frontmatter.tags.is_empty(), "tags should be empty, got: {:?}", posts[0].frontmatter.tags);
+        assert!(
+            posts[0].frontmatter.tags.is_empty(),
+            "tags should be empty, got: {:?}",
+            posts[0].frontmatter.tags
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn test_load_posts_short_body_excerpt() {
-        let dir = std::env::temp_dir().join(format!("myblog_test_short_excerpt_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("myblog_test_short_excerpt_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -877,7 +1114,11 @@ mod tests {
         let posts = load_posts(dir.to_str().unwrap()).unwrap();
         assert_eq!(posts.len(), 1);
         // Excerpt should not end with "..." since body is shorter than 160 chars
-        assert!(!posts[0].excerpt.ends_with("..."), "short body should not have ellipsis: '{}'", posts[0].excerpt);
+        assert!(
+            !posts[0].excerpt.ends_with("..."),
+            "short body should not have ellipsis: '{}'",
+            posts[0].excerpt
+        );
         assert_eq!(posts[0].excerpt, "Short body here");
 
         let _ = std::fs::remove_dir_all(&dir);
@@ -887,14 +1128,20 @@ mod tests {
     fn test_wrap_tables_simple() {
         let html = "<table><tr><td>Cell</td></tr></table>";
         let result = wrap_tables(html);
-        assert_eq!(result, r#"<div class="table-wrapper"><table><tr><td>Cell</td></tr></table></div>"#);
+        assert_eq!(
+            result,
+            r#"<div class="table-wrapper"><table><tr><td>Cell</td></tr></table></div>"#
+        );
     }
 
     #[test]
     fn test_wrap_tables_with_attributes() {
         let html = r#"<table class="test"><tr><td>A</td></tr></table>"#;
         let result = wrap_tables(html);
-        assert_eq!(result, r#"<div class="table-wrapper"><table class="test"><tr><td>A</td></tr></table></div>"#);
+        assert_eq!(
+            result,
+            r#"<div class="table-wrapper"><table class="test"><tr><td>A</td></tr></table></div>"#
+        );
     }
 
     #[test]
@@ -908,15 +1155,26 @@ mod tests {
     fn test_wrap_tables_multiple() {
         let html = "<table><tr><td>1</td></tr></table><p>sep</p><table><tr><td>2</td></tr></table>";
         let result = wrap_tables(html);
-        assert_eq!(result, r#"<div class="table-wrapper"><table><tr><td>1</td></tr></table></div><p>sep</p><div class="table-wrapper"><table><tr><td>2</td></tr></table></div>"#);
+        assert_eq!(
+            result,
+            r#"<div class="table-wrapper"><table><tr><td>1</td></tr></table></div><p>sep</p><div class="table-wrapper"><table><tr><td>2</td></tr></table></div>"#
+        );
     }
 
     #[test]
     fn test_render_markdown_wraps_table() {
         let md = "| A | B |\n|---|---|\n| 1 | 2 |";
         let result = render_markdown(md);
-        assert!(result.contains(r#"<div class="table-wrapper">"#), "table should be wrapped: {}", result);
-        assert!(result.contains("</table></div>"), "wrapper should be closed: {}", result);
+        assert!(
+            result.contains(r#"<div class="table-wrapper">"#),
+            "table should be wrapped: {}",
+            result
+        );
+        assert!(
+            result.contains("</table></div>"),
+            "wrapper should be closed: {}",
+            result
+        );
     }
 
     #[test]
@@ -928,12 +1186,36 @@ mod tests {
             r##"<div class="footnote-definition" id="11"><sup class="footnote-definition-label">1</sup><p>note</p></div>"##,
         );
         let result = fix_footnote_labels(input);
-        assert!(result.contains(r##"<a href="#R">R</a>"##), "reference label should be R, got: {}", result);
-        assert!(result.contains(r##"<a href="#11">11</a>"##), "reference label should be 11, got: {}", result);
-        assert!(result.contains(r##"<sup class="footnote-definition-label">R</sup>"##), "def label should be R, got: {}", result);
-        assert!(result.contains(r##"<sup class="footnote-definition-label">11</sup>"##), "def label should be 11, got: {}", result);
-        assert!(!result.contains(">16<"), "should not contain auto-number 16: {}", result);
-        assert!(!result.contains(">1<"), "should not contain auto-number 1: {}", result);
+        assert!(
+            result.contains(r##"<a href="#R">R</a>"##),
+            "reference label should be R, got: {}",
+            result
+        );
+        assert!(
+            result.contains(r##"<a href="#11">11</a>"##),
+            "reference label should be 11, got: {}",
+            result
+        );
+        assert!(
+            result.contains(r##"<sup class="footnote-definition-label">R</sup>"##),
+            "def label should be R, got: {}",
+            result
+        );
+        assert!(
+            result.contains(r##"<sup class="footnote-definition-label">11</sup>"##),
+            "def label should be 11, got: {}",
+            result
+        );
+        assert!(
+            !result.contains(">16<"),
+            "should not contain auto-number 16: {}",
+            result
+        );
+        assert!(
+            !result.contains(">1<"),
+            "should not contain auto-number 1: {}",
+            result
+        );
     }
 
     #[test]
@@ -943,6 +1225,115 @@ mod tests {
         assert_eq!(result, input);
     }
 
+    #[test]
+    fn test_pre_math_block() {
+        let md = r"before $$\sum_{i=1}^n i$$ after";
+        let result = pre_math(md);
+        assert!(
+            result.contains(r#"<div class="katex-block">"#),
+            "should wrap block math: {}",
+            result
+        );
+        assert!(
+            result.contains(r#"\sum_{i=1}^n i"#),
+            "should keep LaTeX content: {}",
+            result
+        );
+        assert!(
+            result.contains("before"),
+            "should keep text before: {}",
+            result
+        );
+        assert!(
+            result.contains("after"),
+            "should keep text after: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_pre_math_inline() {
+        let md = "inline $x^2$ formula";
+        let result = pre_math(md);
+        assert!(
+            result.contains(r#"<span class="katex-inline">"#),
+            "should wrap inline math: {}",
+            result
+        );
+        assert!(
+            result.contains("x^2"),
+            "should keep LaTeX content: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_pre_math_dollar_no_match() {
+        let md = "price is $5 and $10";
+        let result = pre_math(md);
+        assert_eq!(result, md, "single dollar amounts should not be wrapped");
+    }
+
+    #[test]
+    fn test_pre_math_empty() {
+        let md = "no math here";
+        let result = pre_math(md);
+        assert_eq!(result, md);
+    }
+
+    #[test]
+    fn test_pre_sup_sub() {
+        let md = "x^2^ and H~2~O";
+        let result = pre_sup_sub(md);
+        assert!(
+            result.contains("<sup>2</sup>"),
+            "should convert sup: {}",
+            result
+        );
+        assert!(
+            result.contains("<sub>2</sub>"),
+            "should convert sub: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_pre_sup_sub_strikethrough_unchanged() {
+        let md = "~~strikethrough~~ should stay";
+        let result = pre_sup_sub(md);
+        assert_eq!(result, md, "strikethrough ~~ should not be touched");
+    }
+
+    #[test]
+    fn test_pre_sup_sub_empty() {
+        let md = "plain text without markup";
+        let result = pre_sup_sub(md);
+        assert_eq!(result, md);
+    }
+
+    #[test]
+    fn test_render_markdown_with_math_and_sup_sub() {
+        let md = r"x^2^ and H~2~O plus $$\sum_{i=1}^n i$$ and inline $a^2+b^2=c^2$";
+        let result = render_markdown(md);
+        assert!(
+            result.contains(r#"<div class="katex-block">"#),
+            "should have katex-block: {}",
+            result
+        );
+        assert!(
+            result.contains(r#"<span class="katex-inline">"#),
+            "should have katex-inline: {}",
+            result
+        );
+        assert!(
+            result.contains("<sup>2</sup>"),
+            "should have sup: {}",
+            result
+        );
+        assert!(
+            result.contains("<sub>2</sub>"),
+            "should have sub: {}",
+            result
+        );
+    }
 }
-
-

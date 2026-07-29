@@ -1,9 +1,9 @@
-use std::path::PathBuf;
-use std::sync::Arc;
-use myblog::{AppState, handlers, post};
-use axum::Router;
 use axum::http::HeaderValue;
 use axum::routing::get;
+use axum::Router;
+use myblog::{handlers, post, AppState};
+use std::path::PathBuf;
+use std::sync::Arc;
 use tower_http::compression::CompressionLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
 
@@ -39,10 +39,26 @@ fn test_load_posts_sorted_newest_first() {
 fn test_each_post_has_required_fields() {
     let (posts, dir) = setup_test_posts("fields");
     for p in &posts {
-        assert!(!p.frontmatter.title.is_empty(), "Post {} has empty title", p.slug);
-        assert!(!p.frontmatter.date.is_empty(), "Post {} has empty date", p.slug);
-        assert!(!p.frontmatter.tags.is_empty(), "Post {} has empty tags", p.slug);
-        assert!(!p.content_html.is_empty(), "Post {} has empty content", p.slug);
+        assert!(
+            !p.frontmatter.title.is_empty(),
+            "Post {} has empty title",
+            p.slug
+        );
+        assert!(
+            !p.frontmatter.date.is_empty(),
+            "Post {} has empty date",
+            p.slug
+        );
+        assert!(
+            !p.frontmatter.tags.is_empty(),
+            "Post {} has empty tags",
+            p.slug
+        );
+        assert!(
+            !p.content_html.is_empty(),
+            "Post {} has empty content",
+            p.slug
+        );
         assert!(p.reading_time >= 1, "Post {} has reading_time < 1", p.slug);
         assert!(p.word_count > 0, "Post {} has word_count == 0", p.slug);
         assert!(!p.excerpt.is_empty(), "Post {} has empty excerpt", p.slug);
@@ -57,7 +73,8 @@ fn test_post_content_is_valid_html() {
         assert!(
             p.content_html.starts_with('<'),
             "Post {} content_html does not start with HTML tag: {}",
-            p.slug, &p.content_html[..p.content_html.len().min(50)]
+            p.slug,
+            &p.content_html[..p.content_html.len().min(50)]
         );
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -70,7 +87,8 @@ fn test_search_text_is_lowercased() {
         assert_eq!(
             p.search_text,
             p.search_text.to_lowercase(),
-            "Post {} search_text is not lowercased", p.slug
+            "Post {} search_text is not lowercased",
+            p.slug
         );
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -80,7 +98,8 @@ fn test_search_text_is_lowercased() {
 fn test_tag_filter() {
     let (posts, dir) = setup_test_posts("tagfilt");
     let tag = "rust";
-    let filtered: Vec<&post::Post> = posts.iter()
+    let filtered: Vec<&post::Post> = posts
+        .iter()
         .filter(|p| p.frontmatter.tags.iter().any(|t| t == tag))
         .collect();
     assert_eq!(filtered.len(), 2);
@@ -102,10 +121,11 @@ fn test_render_markdown_adds_heading_ids() {
 #[test]
 fn test_toc_extraction() {
     let (posts, dir) = setup_test_posts("toc");
-    let posts_with_toc: Vec<&post::Post> = posts.iter()
-        .filter(|p| !p.toc.is_empty())
-        .collect();
-    assert!(!posts_with_toc.is_empty(), "Some posts should have TOC entries");
+    let posts_with_toc: Vec<&post::Post> = posts.iter().filter(|p| !p.toc.is_empty()).collect();
+    assert!(
+        !posts_with_toc.is_empty(),
+        "Some posts should have TOC entries"
+    );
     for p in &posts_with_toc {
         for entry in &p.toc {
             assert!(entry.level >= 2 && entry.level <= 4);
@@ -124,7 +144,8 @@ fn test_date_formats_are_valid() {
         assert!(
             date_re.is_match(&p.frontmatter.date),
             "Post {} has invalid date format: {}",
-            p.slug, p.frontmatter.date
+            p.slug,
+            p.frontmatter.date
         );
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -135,10 +156,7 @@ fn test_all_slugs_are_unique() {
     let (posts, dir) = setup_test_posts("slugs");
     let mut slugs: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for p in &posts {
-        assert!(
-            slugs.insert(&p.slug),
-            "Duplicate slug found: {}", p.slug
-        );
+        assert!(slugs.insert(&p.slug), "Duplicate slug found: {}", p.slug);
     }
     assert_eq!(slugs.len(), posts.len());
     let _ = std::fs::remove_dir_all(&dir);
@@ -260,8 +278,13 @@ async fn test_index_handler_returns_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -276,8 +299,13 @@ async fn test_fallback_returns_404() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/nonexistent").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/nonexistent")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 404);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -292,8 +320,13 @@ async fn test_missing_post_returns_404() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/post/no-such-slug").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/post/no-such-slug")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 404);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -310,10 +343,21 @@ async fn test_feed_returns_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/feed.xml").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/feed.xml")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
-    assert!(response.headers().get("content-type").unwrap().to_str().unwrap().starts_with("application/rss+xml"));
+    assert!(response
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .starts_with("application/rss+xml"));
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -323,14 +367,20 @@ async fn test_search_returns_200() {
     let dir = std::env::temp_dir().join(format!("myblog_http_search_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let post = "+++\ntitle = \"Searchable\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nSearchable content";
+    let post =
+        "+++\ntitle = \"Searchable\"\ndate = \"2024-01-01\"\ntags = []\n+++\n\nSearchable content";
     std::fs::write(dir.join("search-test.md"), post).unwrap();
 
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/search?q=Searchable").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/search?q=Searchable")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -346,8 +396,13 @@ async fn test_post_handler_valid_slug_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/post/valid-post").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/post/valid-post")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -366,16 +421,33 @@ async fn test_post_page_has_utterances_script() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/post/utt-test").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/post/utt-test")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let html = String::from_utf8(body.to_vec()).unwrap();
-    assert!(html.contains("utteranc.es/client.js"), "Post page should include utterances script");
-    assert!(html.contains("repo=\"aachou/myblog\""), "Post page should include repo config");
-    assert!(html.contains("issue-term=\"pathname\""), "Post page should use pathname issue term");
-    assert!(html.contains("theme=\"preferred-color-scheme\""), "Post page should use preferred-color-scheme");
+    assert!(
+        html.contains("utteranc.es/client.js"),
+        "Post page should include utterances script"
+    );
+    assert!(
+        html.contains("repo=\"aachou/myblog\""),
+        "Post page should include repo config"
+    );
+    assert!(
+        html.contains("issue-term=\"pathname\""),
+        "Post page should use pathname issue term"
+    );
+    assert!(
+        html.contains("theme=\"preferred-color-scheme\""),
+        "Post page should use preferred-color-scheme"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -391,8 +463,13 @@ async fn test_tag_handler_returns_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/tag/mytag").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/tag/mytag")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -409,8 +486,13 @@ async fn test_tag_handler_no_results_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/tag/nonexistent").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/tag/nonexistent")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -425,15 +507,32 @@ async fn test_about_handler_returns_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/about").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/about")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
-    let body = http_body_util::BodyExt::collect(response.into_body()).await.unwrap().to_bytes();
+    let body = http_body_util::BodyExt::collect(response.into_body())
+        .await
+        .unwrap()
+        .to_bytes();
     let html = String::from_utf8(body.to_vec()).unwrap();
-    assert!(html.contains("阿愁"), "About page should contain author name");
-    assert!(html.contains("?v="), "About page should contain avatar path with cache buster");
-    assert!(html.contains("avatar"), "About page should reference avatar image");
+    assert!(
+        html.contains("阿愁"),
+        "About page should contain author name"
+    );
+    assert!(
+        html.contains("?v="),
+        "About page should contain avatar path with cache buster"
+    );
+    assert!(
+        html.contains("avatar"),
+        "About page should reference avatar image"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -449,8 +548,13 @@ async fn test_tags_handler_returns_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/tags").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/tags")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -467,8 +571,13 @@ async fn test_archive_handler_returns_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/archive").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/archive")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -485,11 +594,26 @@ async fn test_sitemap_handler_returns_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/sitemap.xml").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/sitemap.xml")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
-    let content_type = response.headers().get("content-type").unwrap().to_str().unwrap().to_string();
-    assert!(content_type.starts_with("application/xml"), "expected application/xml, got: {}", content_type);
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        content_type.starts_with("application/xml"),
+        "expected application/xml, got: {}",
+        content_type
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -505,8 +629,13 @@ async fn test_search_without_query_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/search").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/search")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -523,8 +652,13 @@ async fn test_search_empty_query_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/search?q=").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/search?q=")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -541,8 +675,13 @@ async fn test_search_no_results_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/search?q=zzzznonexistent").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/search?q=zzzznonexistent")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -559,25 +698,55 @@ async fn test_response_headers() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
 
-    let csp = response.headers().get("content-security-policy")
+    let csp = response
+        .headers()
+        .get("content-security-policy")
         .expect("CSP header should be present")
-        .to_str().unwrap();
-    assert!(csp.contains("default-src 'self'"), "CSP should contain default-src 'self': {}", csp);
-    assert!(csp.contains("https://utteranc.es"), "CSP should allow utteranc.es: {}", csp);
-    assert!(csp.contains("script-src 'self' https://utteranc.es"), "CSP should allow utteranc.es scripts: {}", csp);
-    assert!(csp.contains("frame-src https://utteranc.es"), "CSP should allow utteranc.es frames: {}", csp);
+        .to_str()
+        .unwrap();
+    assert!(
+        csp.contains("default-src 'self'"),
+        "CSP should contain default-src 'self': {}",
+        csp
+    );
+    assert!(
+        csp.contains("https://utteranc.es"),
+        "CSP should allow utteranc.es: {}",
+        csp
+    );
+    assert!(
+        csp.contains("script-src 'self' https://utteranc.es"),
+        "CSP should allow utteranc.es scripts: {}",
+        csp
+    );
+    assert!(
+        csp.contains("frame-src https://utteranc.es"),
+        "CSP should allow utteranc.es frames: {}",
+        csp
+    );
 
-    let no_sniff = response.headers().get("x-content-type-options")
+    let no_sniff = response
+        .headers()
+        .get("x-content-type-options")
         .expect("X-Content-Type-Options header should be present")
-        .to_str().unwrap();
+        .to_str()
+        .unwrap();
     assert_eq!(no_sniff, "nosniff");
 
-    let cache = response.headers().get("cache-control")
+    let cache = response
+        .headers()
+        .get("cache-control")
         .expect("Cache-Control header should be present")
-        .to_str().unwrap();
+        .to_str()
+        .unwrap();
     assert_eq!(cache, "no-cache");
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -592,11 +761,26 @@ async fn test_feed_handler_empty_posts_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/feed.xml").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/feed.xml")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
-    let content_type = response.headers().get("content-type").unwrap().to_str().unwrap().to_string();
-    assert!(content_type.starts_with("application/rss+xml"), "expected application/rss+xml, got: {}", content_type);
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        content_type.starts_with("application/rss+xml"),
+        "expected application/rss+xml, got: {}",
+        content_type
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -611,7 +795,8 @@ async fn test_index_pagination_page_2_200() {
     for i in 0..3u8 {
         let content = format!(
             "+++\ntitle = \"Post {}\"\ndate = \"2024-06-{:02}\"\ntags = []\n+++\n\nContent",
-            15 - i, 15 - i
+            15 - i,
+            15 - i
         );
         std::fs::write(dir.join(format!("post-{}.md", i)), content).unwrap();
     }
@@ -619,8 +804,13 @@ async fn test_index_pagination_page_2_200() {
     let mut app = setup_router(&dir);
     let response = tower::Service::call(
         &mut app,
-        axum::http::Request::builder().uri("/?page=2").body(axum::body::Body::empty()).unwrap()
-    ).await.unwrap();
+        axum::http::Request::builder()
+            .uri("/?page=2")
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     assert_eq!(response.status(), 200);
 
     let _ = std::fs::remove_dir_all(&dir);

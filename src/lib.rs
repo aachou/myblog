@@ -1,10 +1,10 @@
-pub mod post;
 pub mod handlers;
+pub mod post;
 
+use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use std::sync::{Arc, RwLock};
 use tera::Tera;
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct SiteConfig {
@@ -18,10 +18,18 @@ pub struct SiteConfig {
     pub posts_per_page: usize,
 }
 
-fn default_title() -> String { "MyBlog".into() }
-fn default_desc() -> String { "A personal blog built with Rust and Axum".into() }
-fn default_url() -> String { "http://127.0.0.1:3000".into() }
-fn default_ppp() -> usize { 5 }
+fn default_title() -> String {
+    "MyBlog".into()
+}
+fn default_desc() -> String {
+    "A personal blog built with Rust and Axum".into()
+}
+fn default_url() -> String {
+    "http://127.0.0.1:3000".into()
+}
+fn default_ppp() -> usize {
+    5
+}
 
 impl Default for SiteConfig {
     fn default() -> Self {
@@ -42,11 +50,19 @@ pub fn read_site_config() -> &'static SiteConfig {
             .and_then(|content| serde_json::from_str(&content).ok())
             .unwrap_or_default();
 
-        if let Ok(val) = std::env::var("SITE_TITLE") { config.title = val; }
-        if let Ok(val) = std::env::var("SITE_DESC") { config.description = val; }
-        if let Ok(val) = std::env::var("SITE_URL") { config.url = val; }
+        if let Ok(val) = std::env::var("SITE_TITLE") {
+            config.title = val;
+        }
+        if let Ok(val) = std::env::var("SITE_DESC") {
+            config.description = val;
+        }
+        if let Ok(val) = std::env::var("SITE_URL") {
+            config.url = val;
+        }
         if let Ok(val) = std::env::var("POSTS_PER_PAGE") {
-            if let Ok(n) = val.parse() { config.posts_per_page = n; }
+            if let Ok(n) = val.parse() {
+                config.posts_per_page = n;
+            }
         }
 
         config
@@ -106,5 +122,9 @@ pub struct AppState {
 }
 
 pub fn get_cached_posts(state: &AppState) -> Arc<Vec<post::Post>> {
-    state.posts.read().unwrap_or_else(|e| e.into_inner()).clone()
+    state
+        .posts
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
 }

@@ -38,7 +38,7 @@
   <h2>Popular Tags</h2>
   <div class="tags">
     {% for tag in pop_tags %}
-    <a href="/tag/{{ tag }}" class="tag">{{ tag }}</a>
+    <a href="/tag/{{ tag }}" class="tag">{{ tag | escape_xml }}</a>
     {% endfor %}
   </div>
 </section>

@@ -10,7 +10,7 @@
 <section class="tag-cloud-page">
   <div class="tag-cloud-items">
     {% for t in tag_cloud %}
-    <a href="/tag/{{ t.name }}" class="tag" style="font-size: {{ 0.8 + t.weight * 0.7 }}rem;">{{ t.name }}<span class="tag-count">{{ t.count }}</span></a>
+    <a href="/tag/{{ t.name }}" class="tag" style="font-size: {{ 0.8 + t.weight * 0.7 }}rem;">{{ t.name | escape_xml }}<span class="tag-count">{{ t.count }}</span></a>
     {% endfor %}
   </div>
 </section>

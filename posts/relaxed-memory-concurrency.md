@@ -1,7 +1,7 @@
 +++
 title = "Relaxed Memory Concurrency"
 date = "2026-06-25"
-tags = ["memory Model", "concurrency", "lock-free", “consistency”]
+tags = ["memory Model", "concurrency", "lock-free", "consistency"]
 excerpt = "Promising Semantics 是一种对宽松行为和排序进行建模的可操作语义，本文介绍了 PS 的四个核心机制。"
 +++
 
