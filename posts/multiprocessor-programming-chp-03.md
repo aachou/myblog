@@ -2,7 +2,6 @@
 title = "《多处理器编程的艺术》 第三章 并发对象"
 date = "2026-07-29"
 tags = ["multiprocessor-programming", "concurrency", "sc", "qc", "linearizability", "consistency", "correctness", "progress", "wait-free", "lock-free", "obstruction-free", "starvation-free", "deadlock-free", "nonblocking", "blocking"]
-
 +++
 
 <h1 align="center">多处理器编程的艺术</h1>
