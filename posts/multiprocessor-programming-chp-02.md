@@ -1,7 +1,7 @@
 +++
 title = "《多处理器编程的艺术》 第二章 互斥"
 date = "2026-07-26"
-tags = ["multiprocessor-programming", "concurrency", "mutex", "deadlock-free", "starvation-free", "FCFS"]
+tags = ["multiprocessor-programming", "concurrency", "mutex", "deadlock-free", "starvation-free", "fcfs"]
 +++
 
 <h1 align="center">多处理器编程的艺术</h1>
