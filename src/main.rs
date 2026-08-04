@@ -91,28 +91,37 @@ async fn main() {
             });
 
             // Skip reloads when the file content is unchanged (editors/antivirus can keep
-            // touching files after a single edit).
-            if is_post && file_signature_changed(&mut signatures, &event.paths, "posts", "md") {
-                match post::load_posts("posts") {
-                    Ok(new_posts) => {
-                        *watcher_state
-                            .posts
-                            .write()
-                            .unwrap_or_else(|e| e.into_inner()) = Arc::new(new_posts);
-                        tracing::info!("Posts reloaded after file change");
+            // touching files after a single edit). Signatures are committed only after a
+            // successful reload so a failed one is retried on the next event.
+            if is_post {
+                let (changed, new_sigs) =
+                    file_signature_changed(&signatures, &event.paths, "posts", "md");
+                if changed {
+                    match post::load_posts("posts") {
+                        Ok(new_posts) => {
+                            signatures.extend(new_sigs);
+                            *watcher_state
+                                .posts
+                                .write()
+                                .unwrap_or_else(|e| e.into_inner()) = Arc::new(new_posts);
+                            tracing::info!("Posts reloaded after file change");
+                        }
+                        Err(e) => tracing::warn!("Failed to reload posts: {}", e),
                     }
-                    Err(e) => tracing::warn!("Failed to reload posts: {}", e),
                 }
             }
-            if is_template
-                && file_signature_changed(&mut signatures, &event.paths, "templates", "html")
-            {
-                let mut tera = watcher_state
-                    .tera
-                    .write()
-                    .unwrap_or_else(|e| e.into_inner());
-                let _ = tera.full_reload();
-                tracing::info!("Templates reloaded after file change");
+            if is_template {
+                let (changed, new_sigs) =
+                    file_signature_changed(&signatures, &event.paths, "templates", "html");
+                if changed {
+                    signatures.extend(new_sigs);
+                    let mut tera = watcher_state
+                        .tera
+                        .write()
+                        .unwrap_or_else(|e| e.into_inner());
+                    let _ = tera.full_reload();
+                    tracing::info!("Templates reloaded after file change");
+                }
             }
         }
     });
@@ -160,18 +169,21 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-/// Returns true if any watched file under `dir` (with extension `ext`) has different
-/// content since the last check. Deleted files are tracked via `None` so repeated
-/// delete events don't keep triggering reloads.
+/// Returns `(changed, new_signatures)` for the watched files under `dir` (with extension
+/// `ext`) whose content differs from `signatures`. The caller must commit the returned
+/// `new_signatures` into the map only after a reload actually succeeds; otherwise a
+/// failed reload would poison the dedup and never be retried. Deleted files are tracked
+/// via `None` so repeated delete events don't keep triggering reloads.
 fn file_signature_changed(
-    signatures: &mut std::collections::HashMap<PathBuf, Option<u64>>,
+    signatures: &std::collections::HashMap<PathBuf, Option<u64>>,
     paths: &[PathBuf],
     dir: &str,
     ext: &str,
-) -> bool {
+) -> (bool, Vec<(PathBuf, Option<u64>)>) {
     use std::hash::{Hash, Hasher};
 
     let mut changed = false;
+    let mut new_sigs = Vec::new();
     for p in paths {
         if !p.extension().is_some_and(|e| e == ext)
             || !p
@@ -187,11 +199,11 @@ fn file_signature_changed(
             h.finish()
         });
         if signatures.get(p).and_then(|v| *v) != sig {
-            signatures.insert(p.to_path_buf(), sig);
+            new_sigs.push((p.to_path_buf(), sig));
             changed = true;
         }
     }
-    changed
+    (changed, new_sigs)
 }
 
 #[cfg(test)]
@@ -219,33 +231,51 @@ mod tests {
         let mut signatures = std::collections::HashMap::new();
         let paths = vec![file.clone()];
 
-        assert!(
-            file_signature_changed(&mut signatures, &paths, dir_name, "md"),
-            "first sight should report changed"
-        );
-        assert!(
-            !file_signature_changed(&mut signatures, &paths, dir_name, "md"),
-            "identical content should be skipped"
-        );
+        let (changed, new_sigs) = file_signature_changed(&signatures, &paths, dir_name, "md");
+        assert!(changed, "first sight should report changed");
+        signatures.extend(new_sigs);
+
+        let (changed, _) = file_signature_changed(&signatures, &paths, dir_name, "md");
+        assert!(!changed, "identical content should be skipped");
 
         std::fs::write(&file, "v2").unwrap();
-        assert!(
-            file_signature_changed(&mut signatures, &paths, dir_name, "md"),
-            "modified content should be reported"
-        );
-        assert!(
-            !file_signature_changed(&mut signatures, &paths, dir_name, "md"),
-            "rewrite with same content should be skipped"
-        );
+        let (changed, new_sigs) = file_signature_changed(&signatures, &paths, dir_name, "md");
+        assert!(changed, "modified content should be reported");
+        signatures.extend(new_sigs);
+
+        let (changed, _) = file_signature_changed(&signatures, &paths, dir_name, "md");
+        assert!(!changed, "rewrite with same content should be skipped");
 
         std::fs::remove_file(&file).unwrap();
+        let (changed, new_sigs) = file_signature_changed(&signatures, &paths, dir_name, "md");
+        assert!(changed, "deletion should be reported once");
+        signatures.extend(new_sigs);
+
+        let (changed, _) = file_signature_changed(&signatures, &paths, dir_name, "md");
+        assert!(!changed, "repeated delete events should be skipped");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_file_signature_changed_not_committed_until_success() {
+        let dir = setup_dir("retry");
+        let dir_name = dir.file_name().unwrap().to_str().unwrap();
+        let file = dir.join("post.md");
+        std::fs::write(&file, "v1").unwrap();
+
+        let signatures = std::collections::HashMap::new();
+        let paths = vec![file.clone()];
+
+        // Simulate a failed reload: don't commit the new signature.
+        let (changed, _) = file_signature_changed(&signatures, &paths, dir_name, "md");
+        assert!(changed, "first sight should report changed");
+
+        // A repeated event must still report changed (retry), not be deduped away.
+        let (changed, _) = file_signature_changed(&signatures, &paths, dir_name, "md");
         assert!(
-            file_signature_changed(&mut signatures, &paths, dir_name, "md"),
-            "deletion should be reported once"
-        );
-        assert!(
-            !file_signature_changed(&mut signatures, &paths, dir_name, "md"),
-            "repeated delete events should be skipped"
+            changed,
+            "uncommitted signature must not suppress the retry event"
         );
 
         let _ = std::fs::remove_dir_all(&dir);
@@ -260,25 +290,24 @@ mod tests {
         std::fs::write(&md_file, "x").unwrap();
         std::fs::write(&other_file, "x").unwrap();
 
-        let mut signatures = std::collections::HashMap::new();
+        let signatures = std::collections::HashMap::new();
+        let (changed, _) = file_signature_changed(
+            &signatures,
+            std::slice::from_ref(&other_file),
+            dir_name,
+            "md",
+        );
         assert!(
-            !file_signature_changed(
-                &mut signatures,
-                std::slice::from_ref(&other_file),
-                dir_name,
-                "md"
-            ),
+            !changed,
             "unrelated file type should not trigger a change"
         );
-        assert!(
-            file_signature_changed(
-                &mut signatures,
-                std::slice::from_ref(&md_file),
-                dir_name,
-                "md"
-            ),
-            "md file in the dir should be reported"
+        let (changed, _) = file_signature_changed(
+            &signatures,
+            std::slice::from_ref(&md_file),
+            dir_name,
+            "md",
         );
+        assert!(changed, "md file in the dir should be reported");
 
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -479,10 +479,22 @@ pub fn load_posts(dir: &str) -> Result<Vec<Post>, Box<dyn std::error::Error>> {
     let entries = fs::read_dir(dir_path)?;
 
     for entry in entries {
-        let entry = entry?;
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                tracing::warn!("Failed to read directory entry: {}", e);
+                continue;
+            }
+        };
         let path = entry.path();
         if path.extension().is_some_and(|e| e == "md") {
-            let content = fs::read_to_string(&path)?;
+            let content = match fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!("Skipping {}: cannot read file: {}", path.display(), e);
+                    continue;
+                }
+            };
             match parse_frontmatter(&content) {
                 Some((frontmatter, markdown)) => {
                     if !is_valid_date(&frontmatter.date) {
@@ -855,6 +867,24 @@ mod tests {
         std::fs::write(dir.join("excerpt.md"), content).unwrap();
         let posts = load_posts(dir.to_str().unwrap()).unwrap();
         assert_eq!(posts[0].excerpt, "Custom summary");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_load_posts_skips_unreadable_file() {
+        let dir = std::env::temp_dir().join(format!("myblog_test_unreadable_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let good = "+++\ntitle = \"Good Post\"\ndate = \"2024-03-01\"\ntags = []\n+++\n\nBody";
+        std::fs::write(dir.join("good.md"), good).unwrap();
+        // A directory named `bad.md` makes read_to_string fail (Is a directory).
+        std::fs::create_dir_all(dir.join("bad.md")).unwrap();
+
+        let posts = load_posts(dir.to_str().unwrap()).unwrap();
+        assert_eq!(posts.len(), 1, "unreadable file should be skipped, not abort the load");
+        assert_eq!(posts[0].slug, "good");
 
         let _ = std::fs::remove_dir_all(&dir);
     }
