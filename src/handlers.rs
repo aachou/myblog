@@ -88,7 +88,11 @@ fn render(state: &AppState, template: &str, ctx: &tera::Context) -> Html<String>
     )
 }
 
-fn render_with_og(state: &AppState, template: &str, extra: impl FnOnce(&mut tera::Context)) -> Html<String> {
+fn render_with_og(
+    state: &AppState,
+    template: &str,
+    extra: impl FnOnce(&mut tera::Context),
+) -> Html<String> {
     let mut ctx = tera::Context::new();
     ctx.insert("og_title", &site_title());
     ctx.insert("og_description", &site_desc());
@@ -107,8 +111,24 @@ fn build_tag_frequency(posts: &[crate::post::Post]) -> HashMap<&str, usize> {
     tag_freq
 }
 
-const MONTH_SHORT: &[&str; 13] = &["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const MONTH_FULL: &[&str; 13] = &["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTH_SHORT: &[&str; 13] = &[
+    "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+const MONTH_FULL: &[&str; 13] = &[
+    "",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
 
 fn month_num(s: &str) -> usize {
     s.parse::<usize>().unwrap_or(0)
@@ -121,17 +141,18 @@ fn date_to_rfc2822(date: &str) -> String {
     }
     let y = parts[0];
     let n = month_num(parts[1]);
-    let m = if (1..=12).contains(&n) { MONTH_SHORT[n] } else { parts[1] };
+    let m = if (1..=12).contains(&n) {
+        MONTH_SHORT[n]
+    } else {
+        parts[1]
+    };
     let d = parts[2];
     format!("{}, {} {} {} 00:00:00 GMT", weekday(y, m, d), d, m, y)
 }
 
 fn weekday(y: &str, m: &str, d: &str) -> &'static str {
     let y: i32 = y.parse().unwrap_or(2024);
-    let m: i32 = MONTH_SHORT
-        .iter()
-        .position(|&s| s == m)
-        .unwrap_or(1) as i32;
+    let m: i32 = MONTH_SHORT.iter().position(|&s| s == m).unwrap_or(1) as i32;
     let d: i32 = d.parse().unwrap_or(1);
     let (y, m) = if m < 3 { (y - 1, m + 12) } else { (y, m) };
     let c = y / 100;
@@ -147,7 +168,11 @@ pub async fn index_handler(
     let posts = get_cached_posts(&state);
     let page = query.page.unwrap_or(1).max(1);
     let total = posts.len();
-    let total_pages = if total == 0 { 1 } else { total.div_ceil(posts_per_page()) };
+    let total_pages = if total == 0 {
+        1
+    } else {
+        total.div_ceil(posts_per_page())
+    };
     let page = page.min(total_pages);
     let start = (page - 1) * posts_per_page();
     let end = std::cmp::min(start + posts_per_page(), total);
@@ -218,7 +243,11 @@ pub async fn tag_handler(
 
     let total_filtered = filtered.len();
     let page = query.page.unwrap_or(1).max(1);
-    let total_pages = if total_filtered == 0 { 1 } else { total_filtered.div_ceil(posts_per_page()) };
+    let total_pages = if total_filtered == 0 {
+        1
+    } else {
+        total_filtered.div_ceil(posts_per_page())
+    };
     let page = page.min(total_pages);
     let start = (page - 1) * posts_per_page();
     let end = std::cmp::min(start + posts_per_page(), total_filtered);
@@ -234,7 +263,10 @@ pub async fn tag_handler(
         ctx.insert("tag_raw", &name);
         ctx.insert("total_filtered", &total_filtered);
         ctx.insert("og_title", &format!("#{} - {}", tag_display, site_title()));
-        ctx.insert("og_description", &format!("Posts tagged with #{}", tag_display));
+        ctx.insert(
+            "og_description",
+            &format!("Posts tagged with #{}", tag_display),
+        );
         ctx.insert("og_url", &format!("{}/tag/{}", site_url(), tag_url));
     })
 }
@@ -329,7 +361,11 @@ pub async fn search_handler(
 
     let total_posts = all_results.len();
     let page = query.page.unwrap_or(1).max(1);
-    let total_pages = if total_posts == 0 { 1 } else { total_posts.div_ceil(posts_per_page()) };
+    let total_pages = if total_posts == 0 {
+        1
+    } else {
+        total_posts.div_ceil(posts_per_page())
+    };
     let page = page.min(total_pages);
     let start = (page - 1) * posts_per_page();
     let end = std::cmp::min(start + posts_per_page(), total_posts);
@@ -346,7 +382,10 @@ pub async fn search_handler(
         ctx.insert("result_count", &total_posts);
         ctx.insert("page_info", &page_info);
         ctx.insert("og_title", &format!("Search - {}", site_title()));
-        ctx.insert("og_description", &format!("Search results for \"{}\"", query_display));
+        ctx.insert(
+            "og_description",
+            &format!("Search results for \"{}\"", query_display),
+        );
         ctx.insert("og_url", &format!("{}/search?q={}", site_url(), query_url));
     })
 }
@@ -831,8 +870,8 @@ mod tests {
     #[test]
     fn test_search_filter_logic() {
         let tokens: Vec<&str> = "rust memory".split_whitespace().collect();
-        let titles = vec!["Rust Memory Model", "Rust Async", "Web Design"];
-        let search_texts = vec![
+        let titles = ["Rust Memory Model", "Rust Async", "Web Design"];
+        let search_texts = [
             "memory model in rust",
             "async programming in rust",
             "css layout tips",
@@ -858,7 +897,7 @@ mod tests {
     #[test]
     fn test_search_filter_logic_single_token() {
         let tokens: Vec<&str> = "rust".split_whitespace().collect();
-        let titles = vec!["Rust Memory", "Web Design", "Async Rust"];
+        let titles = ["Rust Memory", "Web Design", "Async Rust"];
 
         let matches: Vec<&str> = titles
             .iter()
@@ -867,7 +906,7 @@ mod tests {
                     .iter()
                     .all(|token| title.to_lowercase().contains(token))
             })
-            .map(|title| *title)
+            .copied()
             .collect();
         assert_eq!(matches, vec!["Rust Memory", "Async Rust"]);
     }
@@ -875,7 +914,7 @@ mod tests {
     #[test]
     fn test_search_filter_logic_no_match() {
         let tokens: Vec<&str> = "python".split_whitespace().collect();
-        let titles = vec!["Rust Memory", "Web Design"];
+        let titles = ["Rust Memory", "Web Design"];
 
         let matches: Vec<&str> = titles
             .iter()
@@ -884,7 +923,7 @@ mod tests {
                     .iter()
                     .all(|token| title.to_lowercase().contains(token))
             })
-            .map(|title| *title)
+            .copied()
             .collect();
         assert!(matches.is_empty());
     }

@@ -273,7 +273,8 @@ fn pre_math(content: &str) -> String {
     let re_inline = INLINE_RE.get_or_init(|| Regex::new(r##"\$([^$\s]+?)\$"##).unwrap());
 
     let content = re_block.replace_all(content, |caps: &regex::Captures| {
-        format!(r##"<div class="katex-block">{}</div>"##, &caps[1])
+        let inner = caps[1].trim();
+        format!("<div class=\"katex-block\">\n{inner}\n</div>\n\n")
     });
     re_inline
         .replace_all(&content, |caps: &regex::Captures| {
@@ -685,10 +686,7 @@ mod tests {
 
     #[test]
     fn test_word_count_with_html() {
-        assert_eq!(
-            word_count("hello world foo bar"),
-            4
-        );
+        assert_eq!(word_count("hello world foo bar"), 4);
     }
 
     #[test]
@@ -1227,7 +1225,7 @@ mod tests {
 
     #[test]
     fn test_pre_math_block() {
-        let md = r"before $$\sum_{i=1}^n i$$ after";
+        let md = "before $$\n\\sum_{i=1}^n i\n$$ after";
         let result = pre_math(md);
         assert!(
             result.contains(r#"<div class="katex-block">"#),
@@ -1247,6 +1245,27 @@ mod tests {
         assert!(
             result.contains("after"),
             "should keep text after: {}",
+            result
+        );
+        assert!(
+            result.contains("</div>\n\n after"),
+            "should have blank line after </div>: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_pre_math_does_not_break_following_markdown() {
+        let md = "intro line\n$$\nE = mc^2\n$$\n**加粗** and `代码` right after";
+        let result = render_markdown(md);
+        assert!(
+            result.contains("<strong>加粗</strong>"),
+            "bold after block math should render: {}",
+            result
+        );
+        assert!(
+            result.contains("<code>代码</code>"),
+            "code after block math should render: {}",
             result
         );
     }

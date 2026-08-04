@@ -20,7 +20,7 @@ Personal blog built with **Rust + Axum 0.7**. Flat-file, no database. Markdown p
 - Comments via [utterances](https://utteranc.es) (GitHub Issues-based, client-side)
 - CSP security headers, XSS protection, accessibility (skip-link, aria-labels)
 - Hot-reload via `notify` (dev), Docker multi-stage build (prod)
-- 135 tests (102 unit + 33 integration), zero clippy warnings
+- 138 tests (105 unit + 33 integration), zero clippy warnings
 
 ## Quick Start
 

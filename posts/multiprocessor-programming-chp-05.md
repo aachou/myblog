@@ -1,7 +1,8 @@
 +++
 title = "《多处理器编程的艺术》 第五章 同步操作原语的相对能力"
-date = "2026-07-30"
+date = "2026-08-01"
 tags = ["multiprocessor-programming", "consensus", "concurrency", "cas", "decision", "rmw"]
+
 +++
 
 <h1 align="center">多处理器编程的艺术</h1>
